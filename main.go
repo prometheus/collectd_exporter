@@ -26,7 +26,13 @@ type collectdMetric struct {
 }
 
 var (
-	addr = flag.String("listen-address", ":1234", "The address to listen on for HTTP requests.")
+	addr     = flag.String("listen-address", ":1234", "The address to listen on for HTTP requests.")
+	lastPush = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "collectd_last_push",
+			Help: "Unixtime the collectd exporter was last pushed to.",
+		},
+	)
 )
 
 func metricName(m collectdMetric, dstype string, dsname string) string {
@@ -85,11 +91,12 @@ func newCollectdCollector() *CollectdCollector {
 func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request) {
 	var postedMetrics []collectdMetric
 	err := json.NewDecoder(r.Body).Decode(&postedMetrics)
-  if err != nil {
-    w.WriteHeader(http.StatusBadRequest)
-    return
-  }
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	now := time.Now()
+	lastPush.Set(float64(now.UnixNano()) / 1e9)
 	for _, metric := range postedMetrics {
 		for i, value := range metric.Values {
 			name := metricName(metric, metric.Dstypes[i], metric.Dsnames[i])
@@ -156,6 +163,7 @@ func (c *CollectdCollector) processSamples() {
 
 // Implements Collector.
 func (c CollectdCollector) Collect(ch chan<- prometheus.Metric) {
+	ch <- lastPush
 	c.mu.Lock()
 	samples := c.samples
 	c.mu.Unlock()
@@ -186,11 +194,7 @@ func (c CollectdCollector) Collect(ch chan<- prometheus.Metric) {
 
 // Implements Collector.
 func (c CollectdCollector) Describe(ch chan<- *prometheus.Desc) {
-	gauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "collectd_dummy",
-		Help: "dummy",
-	})
-	ch <- gauge.Desc()
+	ch <- lastPush.Desc()
 }
 
 func main() {
