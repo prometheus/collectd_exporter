@@ -15,6 +15,7 @@ LoadPlugin write_http
 <Plugin write_http>
   <URL "http://localhost:6060/collectd-post">
     Format "JSON"
+    StoreRates false
   </URL>
 </Plugin>
 ```
