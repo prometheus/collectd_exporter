@@ -13,16 +13,16 @@ import (
 )
 
 type collectdMetric struct {
-	Values          []float64
-	Dstypes         []string
-	Dsnames         []string
-	Time            float64
-	Interval        float64
-	Host            string
-	Plugin          string
-	Plugin_instance string
-	Type            string
-	Type_instance   string
+	Values         []float64
+	Dstypes        []string
+	Dsnames        []string
+	Time           float64
+	Interval       float64
+	Host           string
+	Plugin         string
+	PluginInstance string `json:"plugin_instance"`
+	Type           string
+	TypeInstance   string `json:"type_instance"`
 }
 
 var (
@@ -102,14 +102,14 @@ func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request)
 			name := metricName(metric, metric.Dstypes[i], metric.Dsnames[i])
 			help := metricHelp(metric, metric.Dstypes[i], metric.Dsnames[i])
 			labels := prometheus.Labels{}
-			if metric.Plugin_instance != "" {
-				labels[metric.Plugin] = metric.Plugin_instance
+			if metric.PluginInstance != "" {
+				labels[metric.Plugin] = metric.PluginInstance
 			}
-			if metric.Type_instance != "" {
-				if metric.Plugin_instance == "" {
-					labels[metric.Plugin] = metric.Type_instance
+			if metric.TypeInstance != "" {
+				if metric.PluginInstance == "" {
+					labels[metric.Plugin] = metric.TypeInstance
 				} else {
-					labels["type"] = metric.Type_instance
+					labels["type"] = metric.TypeInstance
 				}
 			}
 			labels["instance"] = metric.Host
