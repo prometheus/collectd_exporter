@@ -54,6 +54,7 @@ type collectdSample struct {
 	Labels  map[string]string
 	Help    string
 	Value   float64
+	Gauge   bool
 	Expires time.Time
 }
 
@@ -106,6 +107,7 @@ func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request)
 				Labels:  labels,
 				Help:    help,
 				Value:   value,
+				Gauge:   metric.Dstypes[i] != "counter",
 				Expires: now.Add(time.Duration(metric.Interval) * time.Second * 2),
 			}
 		}
@@ -113,7 +115,7 @@ func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request)
 }
 
 func (c *CollectdCollector) processSamples() {
-	ticker := time.NewTicker(time.Second).C // FIXME
+	ticker := time.NewTicker(time.Minute).C
 	for {
 		select {
 		case sample := <-c.ch:
@@ -135,7 +137,7 @@ func (c *CollectdCollector) processSamples() {
 			c.samples[*labelset] = sample
 			c.mu.Unlock()
 		case <-ticker:
-      // Garbage collect expired samples.
+			// Garbage collect expired samples.
 			now := time.Now()
 			c.mu.Lock()
 			for k, sample := range c.samples {
@@ -158,13 +160,23 @@ func (c CollectdCollector) Collect(ch chan<- prometheus.Metric) {
 		if now.After(sample.Expires) {
 			continue
 		}
-		gauge := prometheus.NewGauge(
-			prometheus.GaugeOpts{
-				Name:        sample.Name,
-				Help:        sample.Help,
-				ConstLabels: sample.Labels})
-		gauge.Set(sample.Value)
-		ch <- gauge
+		if sample.Gauge {
+			gauge := prometheus.NewGauge(
+				prometheus.GaugeOpts{
+					Name:        sample.Name,
+					Help:        sample.Help,
+					ConstLabels: sample.Labels})
+			gauge.Set(sample.Value)
+			ch <- gauge
+		} else {
+			counter := prometheus.NewCounter(
+				prometheus.CounterOpts{
+					Name:        sample.Name,
+					Help:        sample.Help,
+					ConstLabels: sample.Labels})
+			counter.Set(sample.Value)
+			ch <- counter
+		}
 	}
 }
 
