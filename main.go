@@ -49,6 +49,22 @@ func metricHelp(m collectdMetric, dstype string, dsname string) string {
 		m.Plugin, m.Type, dstype, dsname)
 }
 
+type collectdSample struct {
+	Name    string
+	Labels  map[string]string
+	Help    string
+	Value   float64
+	Expires time.Time
+}
+
+type collectdSampleLabelset struct {
+	Name           string
+	Instance       string
+	Type           string
+	Plugin         string
+	PluginInstance string
+}
+
 type CollectdCollector struct {
 	samples map[collectdSampleLabelset]*collectdSample
 	mu      *sync.Mutex
@@ -96,42 +112,39 @@ func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-type collectdSample struct {
-	Name    string
-	Labels  map[string]string
-	Help    string
-	Value   float64
-	Expires time.Time
-}
-
-type collectdSampleLabelset struct {
-	Name           string
-	Instance       string
-	Type           string
-	Plugin         string
-	PluginInstance string
-}
-
 func (c *CollectdCollector) processSamples() {
+	ticker := time.NewTicker(time.Second).C // FIXME
 	for {
-		sample := <-c.ch
-		labelset := &collectdSampleLabelset{
-			Name: sample.Name,
-		}
-		for k, v := range sample.Labels {
-			switch k {
-			case "instance":
-				labelset.Instance = v
-			case "type":
-				labelset.Type = v
-			default:
-				labelset.Plugin = k
-				labelset.PluginInstance = v
+		select {
+		case sample := <-c.ch:
+			labelset := &collectdSampleLabelset{
+				Name: sample.Name,
 			}
+			for k, v := range sample.Labels {
+				switch k {
+				case "instance":
+					labelset.Instance = v
+				case "type":
+					labelset.Type = v
+				default:
+					labelset.Plugin = k
+					labelset.PluginInstance = v
+				}
+			}
+			c.mu.Lock()
+			c.samples[*labelset] = sample
+			c.mu.Unlock()
+		case <-ticker:
+      // Garbage collect expired samples.
+			now := time.Now()
+			c.mu.Lock()
+			for k, sample := range c.samples {
+				if now.After(sample.Expires) {
+					delete(c.samples, k)
+				}
+			}
+			c.mu.Unlock()
 		}
-		c.mu.Lock()
-		c.samples[*labelset] = sample
-		c.mu.Unlock()
 	}
 }
 
@@ -142,9 +155,9 @@ func (c CollectdCollector) Collect(ch chan<- prometheus.Metric) {
 	c.mu.Unlock()
 	now := time.Now()
 	for _, sample := range samples {
-    if now.After(sample.Expires) {
-      continue
-    }
+		if now.After(sample.Expires) {
+			continue
+		}
 		gauge := prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Name:        sample.Name,
