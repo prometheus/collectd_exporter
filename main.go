@@ -26,7 +26,7 @@ type collectdMetric struct {
 }
 
 var (
-	addr     = flag.String("listen-address", ":1234", "The address to listen on for HTTP requests.")
+	addr     = flag.String("listen-address", ":6060", "The address to listen on for HTTP requests.")
 	lastPush = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "collectd_last_push",
