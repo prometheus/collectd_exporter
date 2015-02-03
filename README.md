@@ -14,7 +14,7 @@ Configure collectd to push to the collectd exporter over HTTP:
 LoadPlugin write_http
 <Plugin write_http>
   <URL "http://localhost:6060/collectd-post">
-  Format "JSON"
+    Format "JSON"
   </URL>
 </Plugin>
 ```
