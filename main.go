@@ -84,7 +84,11 @@ func newCollectdCollector() *CollectdCollector {
 
 func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request) {
 	var postedMetrics []collectdMetric
-	json.NewDecoder(r.Body).Decode(&postedMetrics)
+	err := json.NewDecoder(r.Body).Decode(&postedMetrics)
+  if err != nil {
+    w.WriteHeader(http.StatusBadRequest)
+    return
+  }
 	now := time.Now()
 	for _, metric := range postedMetrics {
 		for i, value := range metric.Values {
