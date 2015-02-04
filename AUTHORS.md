@@ -5,3 +5,4 @@ Maintainers of this repository:
 The following individuals have contributed code to this repository (listed in alphabetical order):
 
 * Brian Brazil <brian.brazil@gmail.com>
+* Julius Volz <julius@soundcloud.com>
