@@ -1,3 +1,16 @@
+// Copyright 2015 The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -29,8 +42,8 @@ var (
 	addr     = flag.String("listen-address", ":6060", "The address to listen on for HTTP requests.")
 	lastPush = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "collectd_last_push",
-			Help: "Unixtime the collectd exporter was last pushed to.",
+			Name: "collectd_last_push_timestamp_seconds",
+			Help: "Unix timestamp of the last received collectd metrics push in seconds.",
 		},
 	)
 )
@@ -51,8 +64,15 @@ func metricName(m collectdMetric, dstype string, dsname string) string {
 }
 
 func metricHelp(m collectdMetric, dstype string, dsname string) string {
-	return fmt.Sprintf("Collectd Metric Plugin: '%s' Type: '%s' Dstype: '%s' Dsname: '%s'",
+	return fmt.Sprintf("Collectd exporter: '%s' Type: '%s' Dstype: '%s' Dsname: '%s'",
 		m.Plugin, m.Type, dstype, dsname)
+}
+
+func metricType(dstype string) prometheus.ValueType {
+	if dstype == "counter" {
+		return prometheus.CounterValue
+	}
+	return prometheus.GaugeValue
 }
 
 type collectdSample struct {
@@ -60,7 +80,7 @@ type collectdSample struct {
 	Labels  map[string]string
 	Help    string
 	Value   float64
-	Gauge   bool
+	Type    prometheus.ValueType
 	Expires time.Time
 }
 
@@ -72,14 +92,14 @@ type collectdSampleLabelset struct {
 	PluginInstance string
 }
 
-type CollectdCollector struct {
+type collectdCollector struct {
 	samples map[collectdSampleLabelset]*collectdSample
 	mu      *sync.Mutex
 	ch      chan *collectdSample
 }
 
-func newCollectdCollector() *CollectdCollector {
-	c := &CollectdCollector{
+func newCollectdCollector() *collectdCollector {
+	c := &collectdCollector{
 		ch:      make(chan *collectdSample, 0),
 		mu:      &sync.Mutex{},
 		samples: map[collectdSampleLabelset]*collectdSample{},
@@ -88,7 +108,7 @@ func newCollectdCollector() *CollectdCollector {
 	return c
 }
 
-func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request) {
+func (c *collectdCollector) collectdPost(w http.ResponseWriter, r *http.Request) {
 	var postedMetrics []collectdMetric
 	err := json.NewDecoder(r.Body).Decode(&postedMetrics)
 	if err != nil {
@@ -98,9 +118,11 @@ func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request)
 	now := time.Now()
 	lastPush.Set(float64(now.UnixNano()) / 1e9)
 	for _, metric := range postedMetrics {
+		if len(metric.Values) != len(metric.Dstypes) || len(metric.Values) != len(metric.Dsnames) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		for i, value := range metric.Values {
-			name := metricName(metric, metric.Dstypes[i], metric.Dsnames[i])
-			help := metricHelp(metric, metric.Dstypes[i], metric.Dsnames[i])
 			labels := prometheus.Labels{}
 			if metric.PluginInstance != "" {
 				labels[metric.Plugin] = metric.PluginInstance
@@ -114,23 +136,23 @@ func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request)
 			}
 			labels["instance"] = metric.Host
 			c.ch <- &collectdSample{
-				Name:    name,
+				Name:    metricName(metric, metric.Dstypes[i], metric.Dsnames[i]),
 				Labels:  labels,
-				Help:    help,
+				Help:    metricHelp(metric, metric.Dstypes[i], metric.Dsnames[i]),
 				Value:   value,
-				Gauge:   metric.Dstypes[i] != "counter",
+				Type:    metricType(metric.Dstypes[i]),
 				Expires: now.Add(time.Duration(metric.Interval) * time.Second * 2),
 			}
 		}
 	}
 }
 
-func (c *CollectdCollector) processSamples() {
+func (c *collectdCollector) processSamples() {
 	ticker := time.NewTicker(time.Minute).C
 	for {
 		select {
 		case sample := <-c.ch:
-			labelset := &collectdSampleLabelset{
+			labelset := collectdSampleLabelset{
 				Name: sample.Name,
 			}
 			for k, v := range sample.Labels {
@@ -145,7 +167,7 @@ func (c *CollectdCollector) processSamples() {
 				}
 			}
 			c.mu.Lock()
-			c.samples[*labelset] = sample
+			c.samples[labelset] = sample
 			c.mu.Unlock()
 		case <-ticker:
 			// Garbage collect expired samples.
@@ -161,39 +183,32 @@ func (c *CollectdCollector) processSamples() {
 	}
 }
 
-// Implements Collector.
-func (c CollectdCollector) Collect(ch chan<- prometheus.Metric) {
+// Collect implements prometheus.Collector.
+func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- lastPush
+
 	c.mu.Lock()
-	samples := c.samples
+	samples := make([]*collectdSample, len(c.samples))
+	for _, sample := range c.samples {
+		samples = append(samples, sample)
+	}
 	c.mu.Unlock()
+
 	now := time.Now()
 	for _, sample := range samples {
 		if now.After(sample.Expires) {
 			continue
 		}
-		if sample.Gauge {
-			gauge := prometheus.NewGauge(
-				prometheus.GaugeOpts{
-					Name:        sample.Name,
-					Help:        sample.Help,
-					ConstLabels: sample.Labels})
-			gauge.Set(sample.Value)
-			ch <- gauge
-		} else {
-			counter := prometheus.NewCounter(
-				prometheus.CounterOpts{
-					Name:        sample.Name,
-					Help:        sample.Help,
-					ConstLabels: sample.Labels})
-			counter.Set(sample.Value)
-			ch <- counter
-		}
+		ch <- prometheus.MustNewConstMetric(
+			prometheus.NewDesc(sample.Name, sample.Help, []string{}, sample.Labels),
+			sample.Type,
+			sample.Value,
+		)
 	}
 }
 
-// Implements Collector.
-func (c CollectdCollector) Describe(ch chan<- *prometheus.Desc) {
+// Describe implements prometheus.Collector.
+func (c collectdCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- lastPush.Desc()
 }
 
