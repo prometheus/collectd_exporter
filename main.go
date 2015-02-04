@@ -111,6 +111,10 @@ func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request)
 	now := time.Now()
 	lastPush.Set(float64(now.UnixNano()) / 1e9)
 	for _, metric := range postedMetrics {
+		if len(metric.Values) != len(metric.Dstypes) || len(metric.Values) != len(metric.Dsnames) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		for i, value := range metric.Values {
 			name := metricName(metric, metric.Dstypes[i], metric.Dsnames[i])
 			help := metricHelp(metric, metric.Dstypes[i], metric.Dsnames[i])
