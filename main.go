@@ -152,7 +152,7 @@ func (c *collectdCollector) processSamples() {
 	for {
 		select {
 		case sample := <-c.ch:
-			labelset := &collectdSampleLabelset{
+			labelset := collectdSampleLabelset{
 				Name: sample.Name,
 			}
 			for k, v := range sample.Labels {
@@ -167,7 +167,7 @@ func (c *collectdCollector) processSamples() {
 				}
 			}
 			c.mu.Lock()
-			c.samples[*labelset] = sample
+			c.samples[labelset] = sample
 			c.mu.Unlock()
 		case <-ticker:
 			// Garbage collect expired samples.
