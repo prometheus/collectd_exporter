@@ -186,9 +186,14 @@ func (c *collectdCollector) processSamples() {
 // Collect implements prometheus.Collector.
 func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- lastPush
+
 	c.mu.Lock()
-	samples := c.samples
+	samples := make([]*collectdSample, len(c.samples))
+	for _, sample := range c.samples {
+		samples = append(samples, sample)
+	}
 	c.mu.Unlock()
+
 	now := time.Now()
 	for _, sample := range samples {
 		if now.After(sample.Expires) {
