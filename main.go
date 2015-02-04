@@ -68,12 +68,19 @@ func metricHelp(m collectdMetric, dstype string, dsname string) string {
 		m.Plugin, m.Type, dstype, dsname)
 }
 
+func metricType(dstype string) prometheus.ValueType {
+	if dstype == "counter" {
+		return prometheus.CounterValue
+	}
+	return prometheus.GaugeValue
+}
+
 type collectdSample struct {
 	Name    string
 	Labels  map[string]string
 	Help    string
 	Value   float64
-	Gauge   bool
+	Type    prometheus.ValueType
 	Expires time.Time
 }
 
@@ -85,14 +92,14 @@ type collectdSampleLabelset struct {
 	PluginInstance string
 }
 
-type CollectdCollector struct {
+type collectdCollector struct {
 	samples map[collectdSampleLabelset]*collectdSample
 	mu      *sync.Mutex
 	ch      chan *collectdSample
 }
 
-func newCollectdCollector() *CollectdCollector {
-	c := &CollectdCollector{
+func newCollectdCollector() *collectdCollector {
+	c := &collectdCollector{
 		ch:      make(chan *collectdSample, 0),
 		mu:      &sync.Mutex{},
 		samples: map[collectdSampleLabelset]*collectdSample{},
@@ -101,7 +108,7 @@ func newCollectdCollector() *CollectdCollector {
 	return c
 }
 
-func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request) {
+func (c *collectdCollector) collectdPost(w http.ResponseWriter, r *http.Request) {
 	var postedMetrics []collectdMetric
 	err := json.NewDecoder(r.Body).Decode(&postedMetrics)
 	if err != nil {
@@ -116,8 +123,6 @@ func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		for i, value := range metric.Values {
-			name := metricName(metric, metric.Dstypes[i], metric.Dsnames[i])
-			help := metricHelp(metric, metric.Dstypes[i], metric.Dsnames[i])
 			labels := prometheus.Labels{}
 			if metric.PluginInstance != "" {
 				labels[metric.Plugin] = metric.PluginInstance
@@ -131,18 +136,18 @@ func (c *CollectdCollector) collectdPost(w http.ResponseWriter, r *http.Request)
 			}
 			labels["instance"] = metric.Host
 			c.ch <- &collectdSample{
-				Name:    name,
+				Name:    metricName(metric, metric.Dstypes[i], metric.Dsnames[i]),
 				Labels:  labels,
-				Help:    help,
+				Help:    metricHelp(metric, metric.Dstypes[i], metric.Dsnames[i]),
 				Value:   value,
-				Gauge:   metric.Dstypes[i] != "counter",
+				Type:    metricType(metric.Dstypes[i]),
 				Expires: now.Add(time.Duration(metric.Interval) * time.Second * 2),
 			}
 		}
 	}
 }
 
-func (c *CollectdCollector) processSamples() {
+func (c *collectdCollector) processSamples() {
 	ticker := time.NewTicker(time.Minute).C
 	for {
 		select {
@@ -178,8 +183,8 @@ func (c *CollectdCollector) processSamples() {
 	}
 }
 
-// Implements Collector.
-func (c CollectdCollector) Collect(ch chan<- prometheus.Metric) {
+// Collect implements prometheus.Collector.
+func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- lastPush
 	c.mu.Lock()
 	samples := c.samples
@@ -189,28 +194,16 @@ func (c CollectdCollector) Collect(ch chan<- prometheus.Metric) {
 		if now.After(sample.Expires) {
 			continue
 		}
-		if sample.Gauge {
-			gauge := prometheus.NewGauge(
-				prometheus.GaugeOpts{
-					Name:        sample.Name,
-					Help:        sample.Help,
-					ConstLabels: sample.Labels})
-			gauge.Set(sample.Value)
-			ch <- gauge
-		} else {
-			counter := prometheus.NewCounter(
-				prometheus.CounterOpts{
-					Name:        sample.Name,
-					Help:        sample.Help,
-					ConstLabels: sample.Labels})
-			counter.Set(sample.Value)
-			ch <- counter
-		}
+		ch <- prometheus.MustNewConstMetric(
+			prometheus.NewDesc(sample.Name, sample.Help, []string{}, sample.Labels),
+			sample.Type,
+			sample.Value,
+		)
 	}
 }
 
-// Implements Collector.
-func (c CollectdCollector) Describe(ch chan<- *prometheus.Desc) {
+// Describe implements prometheus.Collector.
+func (c collectdCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- lastPush.Desc()
 }
 
