@@ -42,8 +42,8 @@ var (
 	addr     = flag.String("listen-address", ":6060", "The address to listen on for HTTP requests.")
 	lastPush = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "collectd_last_push",
-			Help: "Unixtime the collectd exporter was last pushed to.",
+			Name: "collectd_last_push_timestamp_seconds",
+			Help: "Unix timestamp of the last received collectd metrics push in seconds.",
 		},
 	)
 )
@@ -64,7 +64,7 @@ func metricName(m collectdMetric, dstype string, dsname string) string {
 }
 
 func metricHelp(m collectdMetric, dstype string, dsname string) string {
-	return fmt.Sprintf("Collectd Metric Plugin: '%s' Type: '%s' Dstype: '%s' Dsname: '%s'",
+	return fmt.Sprintf("Collectd exporter: '%s' Type: '%s' Dstype: '%s' Dsname: '%s'",
 		m.Plugin, m.Type, dstype, dsname)
 }
 
