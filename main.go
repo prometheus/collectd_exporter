@@ -188,7 +188,7 @@ func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- lastPush
 
 	c.mu.Lock()
-	samples := make([]*collectdSample, len(c.samples))
+	samples := make([]*collectdSample, 0, len(c.samples))
 	for _, sample := range c.samples {
 		samples = append(samples, sample)
 	}
