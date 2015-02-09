@@ -39,8 +39,10 @@ type collectdMetric struct {
 }
 
 var (
-	addr     = flag.String("listen-address", ":6060", "The address to listen on for HTTP requests.")
-	lastPush = prometheus.NewGauge(
+	listeningAddress = flag.String("web.listen-address", ":9103", "Address on which to expose metrics and web interface.")
+	metricsPath      = flag.String("web.telemetry-path", "/metrics", "Path under which to expose Prometheus metrics.")
+	collectdPostPath = flag.String("web.collectd-push-path", "/collectd-post", "Path under which to accept POST requests from collectd.")
+	lastPush         = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "collectd_last_push_timestamp_seconds",
 			Help: "Unix timestamp of the last received collectd metrics push in seconds.",
@@ -214,9 +216,9 @@ func (c collectdCollector) Describe(ch chan<- *prometheus.Desc) {
 
 func main() {
 	flag.Parse()
-	http.Handle("/metrics", prometheus.Handler())
+	http.Handle(*metricsPath, prometheus.Handler())
 	c := newCollectdCollector()
-	http.HandleFunc("/collectd-post", c.collectdPost)
+	http.HandleFunc(*collectdPostPath, c.collectdPost)
 	prometheus.MustRegister(c)
-	http.ListenAndServe(*addr, nil)
+	http.ListenAndServe(*listeningAddress, nil)
 }
