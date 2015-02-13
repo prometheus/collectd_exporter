@@ -1,0 +1,5 @@
+.build
+collectd_exporter
+*.tar.gz
+*.test
+*-stamp
