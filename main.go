@@ -71,7 +71,7 @@ func metricHelp(m collectdMetric, dstype string, dsname string) string {
 }
 
 func metricType(dstype string) prometheus.ValueType {
-	if dstype == "counter" {
+	if dstype == "counter" || dstype == "derive" {
 		return prometheus.CounterValue
 	}
 	return prometheus.GaugeValue
