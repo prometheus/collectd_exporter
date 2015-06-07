@@ -27,6 +27,7 @@ import (
 	"collectd.org/api"
 	"collectd.org/network"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/log"
 )
 
 // timeout specifies the number of iterations after which a metric times out,
@@ -260,5 +261,7 @@ func main() {
 	}
 
 	http.Handle(*metricsPath, prometheus.Handler())
+
+	log.Infof("Starting Server: %s", *webAddress)
 	http.ListenAndServe(*webAddress, nil)
 }
