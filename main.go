@@ -17,26 +17,18 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"collectd.org/api"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type collectdMetric struct {
-	Values         []float64
-	Dstypes        []string
-	Dsnames        []string
-	Time           float64
-	Interval       float64
-	Host           string
-	Plugin         string
-	PluginInstance string `json:"plugin_instance"`
-	Type           string
-	TypeInstance   string `json:"type_instance"`
-}
+const Timeout = 2
 
 var (
 	listeningAddress = flag.String("web.listen-address", ":9103", "Address on which to expose metrics and web interface.")
@@ -50,102 +42,94 @@ var (
 	)
 )
 
-func metricName(m collectdMetric, dstype string, dsname string) string {
-	result := "collectd"
-	if m.Plugin != m.Type && !strings.HasPrefix(m.Type, m.Plugin+"_") {
-		result += "_" + m.Plugin
+// newDesc converts one data source of a value list to a Prometheus description.
+func newDesc(vl api.ValueList, index int) *prometheus.Desc {
+	var name string
+	if vl.Plugin == vl.Type || strings.HasPrefix(vl.Type, vl.Plugin+"_") {
+		name = "collectd_" + vl.Type
+	} else {
+		name = "collectd_" + vl.Plugin + "_" + vl.Type
 	}
-	result += "_" + m.Type
-	if dsname != "value" {
-		result += "_" + dsname
+	if dsname := vl.DSName(index); dsname != "value" {
+		name += "_" + dsname
 	}
-	if dstype == "counter" {
-		result += "_total"
+	switch vl.Values[index].(type) {
+	case api.Counter:
+		name += "_total"
 	}
-	return result
+
+	help := fmt.Sprintf("Collectd exporter: '%s' Type: '%s' Dstype: '%T' Dsname: '%s'",
+		vl.Plugin, vl.Type, vl.Values[index], vl.DSName(index))
+
+	labels := prometheus.Labels{}
+	if vl.PluginInstance != "" {
+		labels[vl.Plugin] = vl.PluginInstance
+	}
+	if vl.TypeInstance != "" {
+		if vl.PluginInstance == "" {
+			labels[vl.Plugin] = vl.TypeInstance
+		} else {
+			labels["type"] = vl.TypeInstance
+		}
+	}
+	labels["instance"] = vl.Host
+
+	return prometheus.NewDesc(name, help, []string{}, labels)
 }
 
-func metricHelp(m collectdMetric, dstype string, dsname string) string {
-	return fmt.Sprintf("Collectd exporter: '%s' Type: '%s' Dstype: '%s' Dsname: '%s'",
-		m.Plugin, m.Type, dstype, dsname)
-}
+// newMetric converts one data source of a value list to a Prometheus metric.
+func newMetric(vl api.ValueList, index int) (prometheus.Metric, error) {
+	var value float64
+	var valueType prometheus.ValueType
 
-func metricType(dstype string) prometheus.ValueType {
-	if dstype == "counter" || dstype == "derive" {
-		return prometheus.CounterValue
+	switch v := vl.Values[index].(type) {
+	case api.Gauge:
+		value = float64(v)
+		valueType = prometheus.GaugeValue
+	case api.Derive:
+		value = float64(v)
+		valueType = prometheus.CounterValue
+	case api.Counter:
+		value = float64(v)
+		valueType = prometheus.CounterValue
+	default:
+		return nil, fmt.Errorf("unknown value type: %T", v)
 	}
-	return prometheus.GaugeValue
-}
 
-type collectdSample struct {
-	Name    string
-	Labels  map[string]string
-	Help    string
-	Value   float64
-	Type    prometheus.ValueType
-	Expires time.Time
-}
-
-type collectdSampleLabelset struct {
-	Name           string
-	Instance       string
-	Type           string
-	Plugin         string
-	PluginInstance string
+	return prometheus.NewConstMetric(newDesc(vl, index), valueType, value)
 }
 
 type collectdCollector struct {
-	samples map[collectdSampleLabelset]*collectdSample
-	mu      *sync.Mutex
-	ch      chan *collectdSample
+	ch         chan api.ValueList
+	valueLists map[string]api.ValueList
+	mu         *sync.Mutex
 }
 
 func newCollectdCollector() *collectdCollector {
 	c := &collectdCollector{
-		ch:      make(chan *collectdSample, 0),
-		mu:      &sync.Mutex{},
-		samples: map[collectdSampleLabelset]*collectdSample{},
+		ch:         make(chan api.ValueList, 0),
+		valueLists: make(map[string]api.ValueList),
+		mu:         &sync.Mutex{},
 	}
 	go c.processSamples()
 	return c
 }
 
 func (c *collectdCollector) collectdPost(w http.ResponseWriter, r *http.Request) {
-	var postedMetrics []collectdMetric
-	err := json.NewDecoder(r.Body).Decode(&postedMetrics)
+	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	now := time.Now()
-	lastPush.Set(float64(now.UnixNano()) / 1e9)
-	for _, metric := range postedMetrics {
-		if len(metric.Values) != len(metric.Dstypes) || len(metric.Values) != len(metric.Dsnames) {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		for i, value := range metric.Values {
-			labels := prometheus.Labels{}
-			if metric.PluginInstance != "" {
-				labels[metric.Plugin] = metric.PluginInstance
-			}
-			if metric.TypeInstance != "" {
-				if metric.PluginInstance == "" {
-					labels[metric.Plugin] = metric.TypeInstance
-				} else {
-					labels["type"] = metric.TypeInstance
-				}
-			}
-			labels["instance"] = metric.Host
-			c.ch <- &collectdSample{
-				Name:    metricName(metric, metric.Dstypes[i], metric.Dsnames[i]),
-				Labels:  labels,
-				Help:    metricHelp(metric, metric.Dstypes[i], metric.Dsnames[i]),
-				Value:   value,
-				Type:    metricType(metric.Dstypes[i]),
-				Expires: now.Add(time.Duration(metric.Interval) * time.Second * 2),
-			}
-		}
+
+	var valueLists []api.ValueList
+	if err := json.Unmarshal(data, &valueLists); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	for _, vl := range valueLists {
+		c.Write(vl)
 	}
 }
 
@@ -153,31 +137,20 @@ func (c *collectdCollector) processSamples() {
 	ticker := time.NewTicker(time.Minute).C
 	for {
 		select {
-		case sample := <-c.ch:
-			labelset := collectdSampleLabelset{
-				Name: sample.Name,
-			}
-			for k, v := range sample.Labels {
-				switch k {
-				case "instance":
-					labelset.Instance = v
-				case "type":
-					labelset.Type = v
-				default:
-					labelset.Plugin = k
-					labelset.PluginInstance = v
-				}
-			}
+		case vl := <-c.ch:
+			id := vl.Identifier.String()
 			c.mu.Lock()
-			c.samples[labelset] = sample
+			c.valueLists[id] = vl
 			c.mu.Unlock()
+
 		case <-ticker:
-			// Garbage collect expired samples.
+			// Garbage collect expired value lists.
 			now := time.Now()
 			c.mu.Lock()
-			for k, sample := range c.samples {
-				if now.After(sample.Expires) {
-					delete(c.samples, k)
+			for id, vl := range c.valueLists {
+				validUntil := vl.Time.Add(Timeout * vl.Interval)
+				if validUntil.Before(now) {
+					delete(c.valueLists, id)
 				}
 			}
 			c.mu.Unlock()
@@ -190,22 +163,28 @@ func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- lastPush
 
 	c.mu.Lock()
-	samples := make([]*collectdSample, 0, len(c.samples))
-	for _, sample := range c.samples {
-		samples = append(samples, sample)
+	valueLists := make([]api.ValueList, 0, len(c.valueLists))
+	for _, vl := range c.valueLists {
+		valueLists = append(valueLists, vl)
 	}
 	c.mu.Unlock()
 
 	now := time.Now()
-	for _, sample := range samples {
-		if now.After(sample.Expires) {
+	for _, vl := range valueLists {
+		validUntil := vl.Time.Add(Timeout * vl.Interval)
+		if validUntil.Before(now) {
 			continue
 		}
-		ch <- prometheus.MustNewConstMetric(
-			prometheus.NewDesc(sample.Name, sample.Help, []string{}, sample.Labels),
-			sample.Type,
-			sample.Value,
-		)
+
+		for i := range vl.Values {
+			m, err := newMetric(vl, i)
+			if err != nil {
+				log.Printf("newMetric: %v", err)
+				continue
+			}
+
+			ch <- m
+		}
 	}
 }
 
@@ -214,11 +193,22 @@ func (c collectdCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- lastPush.Desc()
 }
 
+// Write writes "vl" to the collector's channel, to be (asynchonously)
+// processed by processSamples(). It implements api.Writer.
+func (c collectdCollector) Write(vl api.ValueList) error {
+	lastPush.Set(float64(time.Now().UnixNano()) / 1e9)
+	c.ch <- vl
+
+	return nil
+}
+
 func main() {
 	flag.Parse()
-	http.Handle(*metricsPath, prometheus.Handler())
+
 	c := newCollectdCollector()
-	http.HandleFunc(*collectdPostPath, c.collectdPost)
 	prometheus.MustRegister(c)
+
+	http.Handle(*metricsPath, prometheus.Handler())
+	http.HandleFunc(*collectdPostPath, c.collectdPost)
 	http.ListenAndServe(*listeningAddress, nil)
 }
