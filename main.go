@@ -28,6 +28,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// Timeout specifies the number of iterations after which a metric times out,
+// i.e. becomes stale and is removed from collectdCollector.valueLists. It is
+// modeled and named after the top-level "Timeout" setting of collectd.
 const Timeout = 2
 
 var (
@@ -193,7 +196,7 @@ func (c collectdCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- lastPush.Desc()
 }
 
-// Write writes "vl" to the collector's channel, to be (asynchonously)
+// Write writes "vl" to the collector's channel, to be (asynchronously)
 // processed by processSamples(). It implements api.Writer.
 func (c collectdCollector) Write(vl api.ValueList) error {
 	lastPush.Set(float64(time.Now().UnixNano()) / 1e9)
