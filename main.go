@@ -28,10 +28,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Timeout specifies the number of iterations after which a metric times out,
+// timeout specifies the number of iterations after which a metric times out,
 // i.e. becomes stale and is removed from collectdCollector.valueLists. It is
 // modeled and named after the top-level "Timeout" setting of collectd.
-const Timeout = 2
+const timeout = 2
 
 var (
 	listeningAddress = flag.String("web.listen-address", ":9103", "Address on which to expose metrics and web interface.")
@@ -151,7 +151,7 @@ func (c *collectdCollector) processSamples() {
 			now := time.Now()
 			c.mu.Lock()
 			for id, vl := range c.valueLists {
-				validUntil := vl.Time.Add(Timeout * vl.Interval)
+				validUntil := vl.Time.Add(timeout * vl.Interval)
 				if validUntil.Before(now) {
 					delete(c.valueLists, id)
 				}
@@ -174,7 +174,7 @@ func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 
 	now := time.Now()
 	for _, vl := range valueLists {
-		validUntil := vl.Time.Add(Timeout * vl.Interval)
+		validUntil := vl.Time.Add(timeout * vl.Interval)
 		if validUntil.Before(now) {
 			continue
 		}
