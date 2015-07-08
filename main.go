@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"collectd.org/api"
+	"collectd.org/network"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -34,7 +35,10 @@ import (
 const timeout = 2
 
 var (
-	listeningAddress = flag.String("web.listen-address", ":9103", "Address on which to expose metrics and web interface.")
+	webAddress       = flag.String("web.listen-address", ":9103", "Address on which to expose metrics and web interface.")
+	collectdAddress  = flag.String("collectd.listen-address", "", "Network address on which to accept collectd binary network packets, e.g. \":25826\".")
+	collectdAuth     = flag.String("collectd.auth-file", "", "File mapping user names to pre-shared keys (passwords).")
+	collectdSecurity = flag.String("collectd.security-level", "None", "Minimum required security level for accepted packets. Must be one of \"None\", \"Sign\" and \"Encrypt\".")
 	metricsPath      = flag.String("web.telemetry-path", "/metrics", "Path under which to expose Prometheus metrics.")
 	collectdPostPath = flag.String("web.collectd-push-path", "/collectd-post", "Path under which to accept POST requests from collectd.")
 	lastPush         = prometheus.NewGauge(
@@ -205,13 +209,46 @@ func (c collectdCollector) Write(vl api.ValueList) error {
 	return nil
 }
 
+func startCollectdServer(w api.Writer) {
+	if *collectdAddress == "" {
+		return
+	}
+
+	srv := network.Server{
+		Addr:   *collectdAddress,
+		Writer: w,
+	}
+
+	if *collectdAuth != "" {
+		srv.PasswordLookup = network.NewAuthFile(*collectdAuth)
+	}
+
+	switch strings.ToLower(*collectdSecurity) {
+	case "", "none":
+		srv.SecurityLevel = network.None
+	case "sign":
+		srv.SecurityLevel = network.Sign
+	case "encrypt":
+		srv.SecurityLevel = network.Encrypt
+	default:
+		log.Fatalf("Unknown security level %q. Must be one of \"None\", \"Sign\" and \"Encrypt\".", *collectdSecurity)
+	}
+
+	go log.Fatal(srv.ListenAndWrite())
+}
+
 func main() {
 	flag.Parse()
 
 	c := newCollectdCollector()
 	prometheus.MustRegister(c)
 
+	startCollectdServer(c)
+
+	if *collectdPostPath != "" {
+		http.HandleFunc(*collectdPostPath, c.collectdPost)
+	}
+
 	http.Handle(*metricsPath, prometheus.Handler())
-	http.HandleFunc(*collectdPostPath, c.collectdPost)
-	http.ListenAndServe(*listeningAddress, nil)
+	http.ListenAndServe(*webAddress, nil)
 }
