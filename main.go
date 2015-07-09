@@ -49,8 +49,8 @@ var (
 	)
 )
 
-// newDesc converts one data source of a value list to a Prometheus description.
-func newDesc(vl api.ValueList, index int) *prometheus.Desc {
+// newName converts one data source of a value list to a string representation.
+func newName(vl api.ValueList, index int) string {
 	var name string
 	if vl.Plugin == vl.Type || strings.HasPrefix(vl.Type, vl.Plugin+"_") {
 		name = "collectd_" + vl.Type
@@ -65,9 +65,11 @@ func newDesc(vl api.ValueList, index int) *prometheus.Desc {
 		name += "_total"
 	}
 
-	help := fmt.Sprintf("Collectd exporter: '%s' Type: '%s' Dstype: '%T' Dsname: '%s'",
-		vl.Plugin, vl.Type, vl.Values[index], vl.DSName(index))
+	return name
+}
 
+// newLabels converts the plugin and type instance of vl to a set of prometheus.Labels.
+func newLabels(vl api.ValueList) prometheus.Labels {
 	labels := prometheus.Labels{}
 	if vl.PluginInstance != "" {
 		labels[vl.Plugin] = vl.PluginInstance
@@ -81,7 +83,15 @@ func newDesc(vl api.ValueList, index int) *prometheus.Desc {
 	}
 	labels["instance"] = vl.Host
 
-	return prometheus.NewDesc(name, help, []string{}, labels)
+	return labels
+}
+
+// newDesc converts one data source of a value list to a Prometheus description.
+func newDesc(vl api.ValueList, index int) *prometheus.Desc {
+	help := fmt.Sprintf("Collectd exporter: '%s' Type: '%s' Dstype: '%T' Dsname: '%s'",
+		vl.Plugin, vl.Type, vl.Values[index], vl.DSName(index))
+
+	return prometheus.NewDesc(newName(vl, index), help, []string{}, newLabels(vl))
 }
 
 // newMetric converts one data source of a value list to a Prometheus metric.
