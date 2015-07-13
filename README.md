@@ -49,3 +49,15 @@ LoadPlugin write_http
 To change the path of the end-point, use the `-web.collectd-push-path` command
 line option. To disable this functionality altogether, use
 `-web.collectd-push-path=""`.
+
+## Using Docker
+
+You can deploy this exporter using the [prom/collectd-exporter](https://registry.hub.docker.com/u/prom/collectd-exporter/) Docker image.
+
+For example:
+
+```bash
+docker pull prom/collectd-exporter
+
+docker run -d -p 9103:9103 prom/collectd-exporter
+```
