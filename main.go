@@ -244,7 +244,9 @@ func startCollectdServer(w api.Writer) {
 		log.Fatalf("Unknown security level %q. Must be one of \"None\", \"Sign\" and \"Encrypt\".", *collectdSecurity)
 	}
 
-	go log.Fatal(srv.ListenAndWrite())
+	go func() {
+		log.Fatal(srv.ListenAndWrite())
+	}()
 }
 
 func main() {
