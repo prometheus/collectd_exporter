@@ -8,6 +8,6 @@ The following individuals have contributed code to this repository (listed in al
 * Brian Brazil <brian.brazil@gmail.com>
 * Emmanuel Vaillant <emmanuel.v@me.com>
 * Florian Forster <octo@collectd.org>
-* Julius Volz <julius@soundcloud.com>
+* Julius Volz <julius.volz@gmail.com>
 * Stephen Shirley <kormat@gmail.com>
 * Thomas Clavier <thomas.clavier@gmail.com>
