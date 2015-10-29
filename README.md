@@ -39,10 +39,11 @@ HTTP end-point:
 ```
 LoadPlugin write_http
 <Plugin write_http>
-  <URL "http://localhost:9103/collectd-post">
+  <Node "collectd_exporter"> 
+    URL "http://localhost:9103/collectd-post"
     Format "JSON"
     StoreRates false
-  </URL>
+  </Node>
 </Plugin>
 ```
 
