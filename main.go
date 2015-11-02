@@ -52,7 +52,7 @@ var (
 // newName converts one data source of a value list to a string representation.
 func newName(vl api.ValueList, index int) string {
 	var name string
-	if vl.Plugin == vl.Type || strings.HasPrefix(vl.Type, vl.Plugin+"_") {
+	if vl.Plugin == vl.Type {
 		name = "collectd_" + vl.Type
 	} else {
 		name = "collectd_" + vl.Plugin + "_" + vl.Type
