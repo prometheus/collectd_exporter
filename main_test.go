@@ -42,7 +42,7 @@ func TestNewName(t *testing.T) {
 			},
 			DSNames: []string{"value"},
 			Values:  []api.Value{api.Derive(0)},
-		}, 0, "collectd_dns_qtype"},
+		}, 0, "collectd_dns_dns_qtype"},
 		{api.ValueList{
 			Identifier: api.Identifier{
 				Plugin: "df",
