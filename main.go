@@ -26,7 +26,7 @@ import (
 	"collectd.org/api"
 	"collectd.org/network"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/log"
+	"github.com/prometheus/common/log"
 )
 
 // timeout specifies the number of iterations after which a metric times out,
@@ -196,7 +196,7 @@ func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 		for i := range vl.Values {
 			m, err := newMetric(vl, i)
 			if err != nil {
-				log.Printf("newMetric: %v", err)
+				log.Errorf("newMetric: %v", err)
 				continue
 			}
 
