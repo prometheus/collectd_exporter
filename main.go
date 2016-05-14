@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -26,7 +27,8 @@ import (
 	"collectd.org/api"
 	"collectd.org/network"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/log"
+	"github.com/prometheus/common/log"
+	"github.com/prometheus/common/version"
 )
 
 // timeout specifies the number of iterations after which a metric times out,
@@ -35,7 +37,8 @@ import (
 const timeout = 2
 
 var (
-	webAddress       = flag.String("web.listen-address", ":9103", "Address on which to expose metrics and web interface.")
+	showVersion      = flag.Bool("version", false, "Print version information.")
+	listenAddress    = flag.String("web.listen-address", ":9103", "Address on which to expose metrics and web interface.")
 	collectdAddress  = flag.String("collectd.listen-address", "", "Network address on which to accept collectd binary network packets, e.g. \":25826\".")
 	collectdAuth     = flag.String("collectd.auth-file", "", "File mapping user names to pre-shared keys (passwords).")
 	collectdSecurity = flag.String("collectd.security-level", "None", "Minimum required security level for accepted packets. Must be one of \"None\", \"Sign\" and \"Encrypt\".")
@@ -196,7 +199,7 @@ func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 		for i := range vl.Values {
 			m, err := newMetric(vl, i)
 			if err != nil {
-				log.Printf("newMetric: %v", err)
+				log.Errorf("newMetric: %v", err)
 				continue
 			}
 
@@ -249,8 +252,20 @@ func startCollectdServer(w api.Writer) {
 	}()
 }
 
+func init() {
+	prometheus.MustRegister(version.NewCollector("collectd_exporter"))
+}
+
 func main() {
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Fprintln(os.Stdout, version.Print("collectd_exporter"))
+		os.Exit(0)
+	}
+
+	log.Infoln("Starting collectd_exporter", version.Info())
+	log.Infoln("Build context", version.BuildContext())
 
 	c := newCollectdCollector()
 	prometheus.MustRegister(c)
@@ -262,7 +277,16 @@ func main() {
 	}
 
 	http.Handle(*metricsPath, prometheus.Handler())
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html>
+             <head><title>Collectd Exporter</title></head>
+             <body>
+             <h1>Collectd Exporter</h1>
+             <p><a href='` + *metricsPath + `'>Metrics</a></p>
+             </body>
+             </html>`))
+	})
 
-	log.Infof("Starting Server: %s", *webAddress)
-	http.ListenAndServe(*webAddress, nil)
+	log.Infoln("Listening on", *listenAddress)
+	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
