@@ -1,5 +1,7 @@
-.build
-collectd_exporter
+/.build
+/.release
+/.tarballs
+/collectd_exporter
 *.tar.gz
 *.test
 *-stamp

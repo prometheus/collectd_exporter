@@ -1,4 +1,8 @@
-# Collectd Exporter
+# Collectd Exporter [![Build Status](https://travis-ci.org/prometheus/collectd_exporter.svg)][travis]
+
+[![CircleCI](https://circleci.com/gh/prometheus/collectd_exporter/tree/master.svg?style=shield)][circleci]
+[![Docker Repository on Quay](https://quay.io/repository/prometheus/collectd-exporter/status)][quay]
+[![Docker Pulls](https://img.shields.io/docker/pulls/prom/collectd-exporter.svg?maxAge=604800)][hub]
 
 An exporter for [collectd](https://collectd.org/). It accepts collectd's
 [binary network protocol](https://collectd.org/wiki/index.php/Binary_protocol)
@@ -39,7 +43,7 @@ HTTP end-point:
 ```
 LoadPlugin write_http
 <Plugin write_http>
-  <Node "collectd_exporter"> 
+  <Node "collectd_exporter">
     URL "http://localhost:9103/collectd-post"
     Format "JSON"
     StoreRates false
@@ -53,7 +57,7 @@ line option. To disable this functionality altogether, use
 
 ## Using Docker
 
-You can deploy this exporter using the [prom/collectd-exporter](https://registry.hub.docker.com/u/prom/collectd-exporter/) Docker image.
+You can deploy this exporter using the [prom/collectd-exporter][hub] Docker image.
 
 For example:
 
@@ -62,3 +66,9 @@ docker pull prom/collectd-exporter
 
 docker run -d -p 9103:9103 prom/collectd-exporter
 ```
+
+
+[circleci]: https://circleci.com/gh/prometheus/collectd_exporter
+[hub]: https://hub.docker.com/r/prom/collectd-exporter/
+[travis]: https://travis-ci.org/prometheus/collectd_exporter
+[quay]: https://quay.io/repository/prometheus/collectd-exporter
