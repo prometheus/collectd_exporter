@@ -1,3 +1,7 @@
+## 0.3.1 / 2016-06-06
+
+Re-release of 0.3.0 without functional changes due to release process issues.
+
 ## 0.3.0 / 2016-05-24
 
 BREAKING CHANGES:
