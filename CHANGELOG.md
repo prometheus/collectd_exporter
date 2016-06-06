@@ -1,3 +1,19 @@
+## 0.3.0 / 2016-05-24
+
+BREAKING CHANGES:
+
+* To disambiguate metric names, the plugin name will no longer be omitted in most cases (#23)
+* The structure of the tarball has changed, see prometheus/docs#447
+
+All changes:
+
+* [CHANGE] Logs now have the common Prometheus format
+* [CHANGE] Only omit the plugin name if it is equal to the collectd type
+* [ENHANCEMENT] The `write_http` example is updated to match the current collectd write_http plugin config format.
+* [ENHANCEMENT] Now built with Go 1.6.2.
+* [ENHANCEMENT] New release and binary build process.
+* [CHANGE] Reorganised release binary tarballs.
+
 ## 0.2.0 / 2015-09-03
 
 BREAKING CHANGES:
