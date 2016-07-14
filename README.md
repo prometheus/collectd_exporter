@@ -58,13 +58,15 @@ line option. To disable this functionality altogether, use
 ## Using Docker
 
 You can deploy this exporter using the [prom/collectd-exporter][hub] Docker image.
+You will need to map the collectd port from the container to the host, remembering
+that this is a UDP port.
 
 For example:
 
 ```bash
 docker pull prom/collectd-exporter
 
-docker run -d -p 9103:9103 prom/collectd-exporter
+docker run -d -p 9103:9103 -p 25826:25826/udp prom/collectd-exporter -collectd.listen-address=":25826"
 ```
 
 
