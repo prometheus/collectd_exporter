@@ -3,22 +3,22 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "n7PAA6+Hk9gfmkXCQJcaylPnQWc=",
+			"checksumSHA1": "t/SEkGSl0/OEKHNyUpsYrwcsfus=",
 			"path": "collectd.org/api",
-			"revision": "9fc824c70f713ea0f058a07b49a4c563ef2a3b98",
-			"revisionTime": "2015-09-09T20:41:49Z"
+			"revision": "1ec72cad780eca2b842aa2c30bbc634e415645f4",
+			"revisionTime": "2016-08-25T11:10:03Z"
 		},
 		{
 			"checksumSHA1": "VTTIMq9P+UTmF8NIainR7EbobM0=",
 			"path": "collectd.org/cdtime",
-			"revision": "9fc824c70f713ea0f058a07b49a4c563ef2a3b98",
-			"revisionTime": "2015-09-09T20:41:49Z"
+			"revision": "1ec72cad780eca2b842aa2c30bbc634e415645f4",
+			"revisionTime": "2016-08-25T11:10:03Z"
 		},
 		{
-			"checksumSHA1": "4fby1B+i4h4/8U9NirrjFhigwws=",
+			"checksumSHA1": "5+WAbhw2TMrAuqZA4JHz4iTeLHc=",
 			"path": "collectd.org/network",
-			"revision": "9fc824c70f713ea0f058a07b49a4c563ef2a3b98",
-			"revisionTime": "2015-09-09T20:41:49Z"
+			"revision": "1ec72cad780eca2b842aa2c30bbc634e415645f4",
+			"revisionTime": "2016-08-25T11:10:03Z"
 		},
 		{
 			"checksumSHA1": "SdEcxwaW92m0H3pao3BPj2ZpvaU=",

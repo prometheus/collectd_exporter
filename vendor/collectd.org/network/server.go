@@ -1,6 +1,7 @@
 package network // import "collectd.org/network"
 
 import (
+	"context"
 	"log"
 	"net"
 
@@ -11,13 +12,13 @@ import (
 // packets and writes them to the provided api.Writer.
 // This is a convenience function for a minimally configured server. If you
 // need more control, see the "Server" type below.
-func ListenAndWrite(address string, d api.Writer) error {
+func ListenAndWrite(ctx context.Context, address string, d api.Writer) error {
 	srv := &Server{
 		Addr:   address,
 		Writer: d,
 	}
 
-	return srv.ListenAndWrite()
+	return srv.ListenAndWrite(ctx)
 }
 
 // Server holds parameters for running a collectd server.
@@ -26,7 +27,8 @@ type Server struct {
 	Writer         api.Writer     // Object used to send incoming ValueLists to.
 	BufferSize     uint16         // Maximum packet size to accept.
 	PasswordLookup PasswordLookup // User to password lookup.
-	SecurityLevel  SecurityLevel  // Minimal required security level
+	SecurityLevel  SecurityLevel  // Minimal required security level.
+	TypesDB        *api.TypesDB   // TypesDB for looking up DS names and verify data source types.
 	// Interface is the name of the interface to use when subscribing to a
 	// multicast group. Has no effect when using unicast.
 	Interface string
@@ -34,7 +36,7 @@ type Server struct {
 
 // ListenAndWrite listens on the provided UDP address, parses the received
 // packets and writes them to the provided api.Writer.
-func (srv *Server) ListenAndWrite() error {
+func (srv *Server) ListenAndWrite(ctx context.Context) error {
 	addr := srv.Addr
 	if addr == "" {
 		addr = ":" + DefaultService
@@ -70,6 +72,7 @@ func (srv *Server) ListenAndWrite() error {
 	popts := ParseOpts{
 		PasswordLookup: srv.PasswordLookup,
 		SecurityLevel:  srv.SecurityLevel,
+		TypesDB:        srv.TypesDB,
 	}
 
 	for {
@@ -84,13 +87,13 @@ func (srv *Server) ListenAndWrite() error {
 			continue
 		}
 
-		go dispatch(valueLists, srv.Writer)
+		go dispatch(ctx, valueLists, srv.Writer)
 	}
 }
 
-func dispatch(valueLists []api.ValueList, d api.Writer) {
+func dispatch(ctx context.Context, valueLists []*api.ValueList, d api.Writer) {
 	for _, vl := range valueLists {
-		if err := d.Write(vl); err != nil {
+		if err := d.Write(ctx, vl); err != nil {
 			log.Printf("error while dispatching: %v", err)
 		}
 	}
