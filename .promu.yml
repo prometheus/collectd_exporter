@@ -1,4 +1,4 @@
-go: 1.6.2
+go: 1.7
 repository:
     path: github.com/prometheus/collectd_exporter
 build:
