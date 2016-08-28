@@ -14,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -142,14 +143,14 @@ func (c *collectdCollector) collectdPost(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var valueLists []api.ValueList
+	var valueLists []*api.ValueList
 	if err := json.Unmarshal(data, &valueLists); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	for _, vl := range valueLists {
-		c.Write(vl)
+		c.Write(r.Context(), vl)
 	}
 }
 
@@ -215,14 +216,14 @@ func (c collectdCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Write writes "vl" to the collector's channel, to be (asynchronously)
 // processed by processSamples(). It implements api.Writer.
-func (c collectdCollector) Write(vl api.ValueList) error {
+func (c collectdCollector) Write(_ context.Context, vl *api.ValueList) error {
 	lastPush.Set(float64(time.Now().UnixNano()) / 1e9)
-	c.ch <- vl
+	c.ch <- *vl
 
 	return nil
 }
 
-func startCollectdServer(w api.Writer) {
+func startCollectdServer(ctx context.Context, w api.Writer) {
 	if *collectdAddress == "" {
 		return
 	}
@@ -248,7 +249,7 @@ func startCollectdServer(w api.Writer) {
 	}
 
 	go func() {
-		log.Fatal(srv.ListenAndWrite())
+		log.Fatal(srv.ListenAndWrite(ctx))
 	}()
 }
 
@@ -270,7 +271,7 @@ func main() {
 	c := newCollectdCollector()
 	prometheus.MustRegister(c)
 
-	startCollectdServer(c)
+	startCollectdServer(context.Background(), c)
 
 	if *collectdPostPath != "" {
 		http.HandleFunc(*collectdPostPath, c.collectdPost)

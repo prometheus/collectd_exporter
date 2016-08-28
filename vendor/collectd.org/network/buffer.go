@@ -2,6 +2,7 @@ package network // import "collectd.org/network"
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -77,6 +78,21 @@ func (b *Buffer) Available() int {
 	return b.size - unavail
 }
 
+// Bytes returns the content of the buffer as a byte slice.
+// If signing or encrypting are enabled, the content will be signed / encrypted
+// prior to being returned.
+// This method resets the buffer.
+func (b *Buffer) Bytes() ([]byte, error) {
+	tmp := make([]byte, b.size)
+
+	n, err := b.Read(tmp)
+	if err != nil {
+		return nil, err
+	}
+
+	return tmp[:n], nil
+}
+
 // Read reads the buffer into "out". If signing or encryption is enabled, data
 // will be signed / encrypted before writing it to "out". Returns
 // ErrNotEnoughSpace if the provided buffer is too small to hold the entire
@@ -144,7 +160,7 @@ func (b *Buffer) WriteTo(w io.Writer) (int64, error) {
 // Write adds a ValueList to the buffer. Returns ErrNotEnoughSpace if not
 // enough space in the buffer is available to add this value list. In that
 // case, call Read() to empty the buffer and try again.
-func (b *Buffer) Write(vl api.ValueList) error {
+func (b *Buffer) Write(_ context.Context, vl *api.ValueList) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -161,7 +177,7 @@ func (b *Buffer) Write(vl api.ValueList) error {
 	return nil
 }
 
-func (b *Buffer) writeValueList(vl api.ValueList) error {
+func (b *Buffer) writeValueList(vl *api.ValueList) error {
 	if err := b.writeIdentifier(vl.Identifier); err != nil {
 		return err
 	}

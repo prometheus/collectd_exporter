@@ -25,12 +25,14 @@ type ParseOpts struct {
 	// caller. If set to "Sign", only signed and encrypted data is returned
 	// by Parse(), if set to "Encrypt", only encrypted data is returned.
 	SecurityLevel SecurityLevel
+	// TypesDB for looking up DS names and verify data source types.
+	TypesDB *api.TypesDB
 }
 
 // Parse parses the binary network format and returns a slice of ValueLists. If
 // a parse error is encountered, all ValueLists parsed to this point are
 // returned as well as the error. Unknown "parts" are silently ignored.
-func Parse(b []byte, opts ParseOpts) ([]api.ValueList, error) {
+func Parse(b []byte, opts ParseOpts) ([]*api.ValueList, error) {
 	return parse(b, None, opts)
 }
 
@@ -42,8 +44,8 @@ func readUint16(buf *bytes.Buffer) (uint16, error) {
 	return binary.BigEndian.Uint16(read), nil
 }
 
-func parse(b []byte, sl SecurityLevel, opts ParseOpts) ([]api.ValueList, error) {
-	var valueLists []api.ValueList
+func parse(b []byte, sl SecurityLevel, opts ParseOpts) ([]*api.ValueList, error) {
+	var valueLists []*api.ValueList
 
 	var state api.ValueList
 	buf := bytes.NewBuffer(b)
@@ -83,13 +85,40 @@ func parse(b []byte, sl SecurityLevel, opts ParseOpts) ([]api.ValueList, error) 
 			}
 
 		case typeValues:
-			vl := state
-			var err error
-			if vl.Values, err = parseValues(payload); err != nil {
+			v, err := parseValues(payload)
+			if err != nil {
 				return valueLists, err
 			}
+
+			vl := state
+			vl.Values = v
+
+			if opts.TypesDB != nil {
+				ds, ok := opts.TypesDB.DataSet(state.Type)
+				if !ok {
+					log.Printf("unable to find %q in TypesDB", state.Type)
+					continue
+				}
+
+				// convert []api.Value to []interface{}
+				ifValues := make([]interface{}, len(vl.Values))
+				for i, v := range vl.Values {
+					ifValues[i] = v
+				}
+
+				// cast all values to the correct data source type.
+				// Returns an error if the number of values is incorrect.
+				v, err := ds.Values(ifValues...)
+				if err != nil {
+					log.Printf("unable to convert values according to TypesDB: %v", err)
+					continue
+				}
+				vl.Values = v
+				vl.DSNames = ds.Names()
+			}
+
 			if opts.SecurityLevel <= sl {
-				valueLists = append(valueLists, vl)
+				valueLists = append(valueLists, &vl)
 			}
 
 		case typeSignSHA256:
@@ -206,7 +235,7 @@ func parseValues(b []byte) ([]api.Value, error) {
 	return values, nil
 }
 
-func parseSignSHA256(pkg, payload []byte, opts ParseOpts) ([]api.ValueList, error) {
+func parseSignSHA256(pkg, payload []byte, opts ParseOpts) ([]*api.ValueList, error) {
 	ok, err := verifySHA256(pkg, payload, opts.PasswordLookup)
 	if err != nil {
 		return nil, err
@@ -217,7 +246,7 @@ func parseSignSHA256(pkg, payload []byte, opts ParseOpts) ([]api.ValueList, erro
 	return parse(payload, Sign, opts)
 }
 
-func parseEncryptAES256(payload []byte, opts ParseOpts) ([]api.ValueList, error) {
+func parseEncryptAES256(payload []byte, opts ParseOpts) ([]*api.ValueList, error) {
 	plaintext, err := decryptAES256(payload, opts.PasswordLookup)
 	if err != nil {
 		return nil, errors.New("AES256 decryption failure")

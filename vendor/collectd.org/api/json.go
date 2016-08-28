@@ -23,7 +23,7 @@ type jsonValueList struct {
 
 // MarshalJSON implements the "encoding/json".Marshaler interface for
 // ValueList.
-func (vl ValueList) MarshalJSON() ([]byte, error) {
+func (vl *ValueList) MarshalJSON() ([]byte, error) {
 	jvl := jsonValueList{
 		Values:         make([]json.Number, len(vl.Values)),
 		DSTypes:        make([]string, len(vl.Values)),
