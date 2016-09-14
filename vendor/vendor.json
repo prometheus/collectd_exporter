@@ -5,20 +5,20 @@
 		{
 			"checksumSHA1": "t/SEkGSl0/OEKHNyUpsYrwcsfus=",
 			"path": "collectd.org/api",
-			"revision": "1ec72cad780eca2b842aa2c30bbc634e415645f4",
-			"revisionTime": "2016-08-25T11:10:03Z"
+			"revision": "c19ea48bfbf6f5aaa23a06f5cea768b7cfdd8fb5",
+			"revisionTime": "2016-09-12T13:33:33Z"
 		},
 		{
 			"checksumSHA1": "VTTIMq9P+UTmF8NIainR7EbobM0=",
 			"path": "collectd.org/cdtime",
-			"revision": "1ec72cad780eca2b842aa2c30bbc634e415645f4",
-			"revisionTime": "2016-08-25T11:10:03Z"
+			"revision": "c19ea48bfbf6f5aaa23a06f5cea768b7cfdd8fb5",
+			"revisionTime": "2016-09-12T13:33:33Z"
 		},
 		{
-			"checksumSHA1": "5+WAbhw2TMrAuqZA4JHz4iTeLHc=",
+			"checksumSHA1": "nYaRVCWraVHXiyXVa93rKs9aw0o=",
 			"path": "collectd.org/network",
-			"revision": "1ec72cad780eca2b842aa2c30bbc634e415645f4",
-			"revisionTime": "2016-08-25T11:10:03Z"
+			"revision": "c19ea48bfbf6f5aaa23a06f5cea768b7cfdd8fb5",
+			"revisionTime": "2016-09-12T13:33:33Z"
 		},
 		{
 			"checksumSHA1": "SdEcxwaW92m0H3pao3BPj2ZpvaU=",

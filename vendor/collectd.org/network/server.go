@@ -23,7 +23,8 @@ func ListenAndWrite(ctx context.Context, address string, d api.Writer) error {
 
 // Server holds parameters for running a collectd server.
 type Server struct {
-	Addr           string         // UDP address to listen on.
+	Conn           *net.UDPConn   // UDP connection the server listens on.
+	Addr           string         // Address to listen on if Conn is nil.
 	Writer         api.Writer     // Object used to send incoming ValueLists to.
 	BufferSize     uint16         // Maximum packet size to accept.
 	PasswordLookup PasswordLookup // User to password lookup.
@@ -34,35 +35,40 @@ type Server struct {
 	Interface string
 }
 
-// ListenAndWrite listens on the provided UDP address, parses the received
-// packets and writes them to the provided api.Writer.
+// ListenAndWrite listens on the provided UDP connection (or creates one using
+// Addr if Conn is nil), parses the received packets and writes them to the
+// provided api.Writer.
 func (srv *Server) ListenAndWrite(ctx context.Context) error {
-	addr := srv.Addr
-	if addr == "" {
-		addr = ":" + DefaultService
-	}
-
-	laddr, err := net.ResolveUDPAddr("udp", srv.Addr)
-	if err != nil {
-		return err
-	}
-
-	var sock *net.UDPConn
-	if laddr.IP != nil && laddr.IP.IsMulticast() {
-		var ifi *net.Interface
-		if srv.Interface != "" {
-			if ifi, err = net.InterfaceByName(srv.Interface); err != nil {
-				return err
-			}
+	if srv.Conn == nil {
+		addr := srv.Addr
+		if addr == "" {
+			addr = ":" + DefaultService
 		}
-		sock, err = net.ListenMulticastUDP("udp", ifi, laddr)
-	} else {
-		sock, err = net.ListenUDP("udp", laddr)
+
+		laddr, err := net.ResolveUDPAddr("udp", srv.Addr)
+		if err != nil {
+			return err
+		}
+
+		if laddr.IP != nil && laddr.IP.IsMulticast() {
+			var ifi *net.Interface
+			if srv.Interface != "" {
+				if ifi, err = net.InterfaceByName(srv.Interface); err != nil {
+					return err
+				}
+			}
+			srv.Conn, err = net.ListenMulticastUDP("udp", ifi, laddr)
+		} else {
+			srv.Conn, err = net.ListenUDP("udp", laddr)
+		}
+		if err != nil {
+			return err
+		}
+		defer func() {
+			srv.Conn.Close()
+			srv.Conn = nil
+		}()
 	}
-	if err != nil {
-		return err
-	}
-	defer sock.Close()
 
 	if srv.BufferSize <= 0 {
 		srv.BufferSize = DefaultBufferSize
@@ -76,7 +82,7 @@ func (srv *Server) ListenAndWrite(ctx context.Context) error {
 	}
 
 	for {
-		n, err := sock.Read(buf)
+		n, err := srv.Conn.Read(buf)
 		if err != nil {
 			return err
 		}
