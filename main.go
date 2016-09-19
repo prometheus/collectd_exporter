@@ -43,6 +43,7 @@ var (
 	collectdAddress  = flag.String("collectd.listen-address", "", "Network address on which to accept collectd binary network packets, e.g. \":25826\".")
 	collectdAuth     = flag.String("collectd.auth-file", "", "File mapping user names to pre-shared keys (passwords).")
 	collectdSecurity = flag.String("collectd.security-level", "None", "Minimum required security level for accepted packets. Must be one of \"None\", \"Sign\" and \"Encrypt\".")
+	collectdTypesDB  = flag.String("collectd.typesdb-file", "", "Collectd types.db file for datasource names mapping. Needed only if using a binary network protocol.")
 	metricsPath      = flag.String("web.telemetry-path", "/metrics", "Path under which to expose Prometheus metrics.")
 	collectdPostPath = flag.String("web.collectd-push-path", "/collectd-post", "Path under which to accept POST requests from collectd.")
 	lastPush         = prometheus.NewGauge(
@@ -235,6 +236,20 @@ func startCollectdServer(ctx context.Context, w api.Writer) {
 
 	if *collectdAuth != "" {
 		srv.PasswordLookup = network.NewAuthFile(*collectdAuth)
+	}
+
+	if *collectdTypesDB != "" {
+		file, err := os.Open(*collectdTypesDB)
+		if err != nil {
+			log.Fatalf("Can't open types.db file %s", *collectdTypesDB)
+		}
+		defer file.Close()
+
+		typesDB, err := api.NewTypesDB(file)
+		if err != nil {
+			log.Fatalf("Error in parsing types.db file %s", *collectdTypesDB)
+		}
+		srv.TypesDB = typesDB
 	}
 
 	switch strings.ToLower(*collectdSecurity) {
