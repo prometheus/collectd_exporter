@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -41,6 +42,7 @@ var (
 	showVersion      = flag.Bool("version", false, "Print version information.")
 	listenAddress    = flag.String("web.listen-address", ":9103", "Address on which to expose metrics and web interface.")
 	collectdAddress  = flag.String("collectd.listen-address", "", "Network address on which to accept collectd binary network packets, e.g. \":25826\".")
+	collectdBuffer   = flag.Int("collectd.udp-buffer", 0, "Size of the receive buffer of the socket used by collectd binary protocol receiver.")
 	collectdAuth     = flag.String("collectd.auth-file", "", "File mapping user names to pre-shared keys (passwords).")
 	collectdSecurity = flag.String("collectd.security-level", "None", "Minimum required security level for accepted packets. Must be one of \"None\", \"Sign\" and \"Encrypt\".")
 	collectdTypesDB  = flag.String("collectd.typesdb-file", "", "Collectd types.db file for datasource names mapping. Needed only if using a binary network protocol.")
@@ -261,6 +263,25 @@ func startCollectdServer(ctx context.Context, w api.Writer) {
 		srv.SecurityLevel = network.Encrypt
 	default:
 		log.Fatalf("Unknown security level %q. Must be one of \"None\", \"Sign\" and \"Encrypt\".", *collectdSecurity)
+	}
+
+	laddr, err := net.ResolveUDPAddr("udp", *collectdAddress)
+	if err != nil {
+		log.Fatalf("Failed to resolve binary protocol listening UDP address %q: %v", *collectdAddress, err)
+	}
+
+	if laddr.IP != nil && laddr.IP.IsMulticast() {
+		srv.Conn, err = net.ListenMulticastUDP("udp", nil, laddr)
+	} else {
+		srv.Conn, err = net.ListenUDP("udp", laddr)
+	}
+	if err != nil {
+		log.Fatalf("Failed to create a socket for a binary protocol server: %v", err)
+	}
+	if *collectdBuffer >= 0 {
+		if err = srv.Conn.SetReadBuffer(*collectdBuffer); err != nil {
+			log.Fatalf("Failed to adjust a read buffer of the socket: %v", err)
+		}
 	}
 
 	go func() {
