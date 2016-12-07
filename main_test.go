@@ -34,7 +34,7 @@ func TestNewName(t *testing.T) {
 			},
 			DSNames: []string{"value"},
 			Values:  []api.Value{api.Derive(0)},
-		}, 0, "collectd_cpu"},
+		}, 0, "collectd_cpu_total"},
 		{api.ValueList{
 			Identifier: api.Identifier{
 				Plugin: "dns",
@@ -42,7 +42,7 @@ func TestNewName(t *testing.T) {
 			},
 			DSNames: []string{"value"},
 			Values:  []api.Value{api.Derive(0)},
-		}, 0, "collectd_dns_dns_qtype"},
+		}, 0, "collectd_dns_dns_qtype_total"},
 		{api.ValueList{
 			Identifier: api.Identifier{
 				Plugin: "df",

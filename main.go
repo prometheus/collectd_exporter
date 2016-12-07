@@ -68,7 +68,7 @@ func newName(vl api.ValueList, index int) string {
 		name += "_" + dsname
 	}
 	switch vl.Values[index].(type) {
-	case api.Counter:
+	case api.Counter, api.Derive:
 		name += "_total"
 	}
 
