@@ -5,3 +5,8 @@
 *.tar.gz
 *.test
 *-stamp
+
+# IntelliJ #
+############
+/.idea/
+*.iml

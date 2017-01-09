@@ -14,23 +14,26 @@
 package main
 
 import (
+	"collectd.org/api"
+	"collectd.org/network"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/log"
+	"github.com/prometheus/common/version"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
-
-	"collectd.org/api"
-	"collectd.org/network"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
-	"github.com/prometheus/common/version"
 )
 
 // timeout specifies the number of iterations after which a metric times out,
@@ -54,6 +57,8 @@ var (
 			Help: "Unix timestamp of the last received collectd metrics push in seconds.",
 		},
 	)
+
+	metadataRefreshPeriod = flag.Int("metadata.refresh.period.min", 1, "refresh period in mins for retrieving metadata")
 )
 
 // newName converts one data source of a value list to a string representation.
@@ -76,11 +81,31 @@ func newName(vl api.ValueList, index int) string {
 }
 
 // newLabels converts the plugin and type instance of vl to a set of prometheus.Labels.
-func newLabels(vl api.ValueList) prometheus.Labels {
+func newLabels(vl api.ValueList, md metadata) prometheus.Labels {
 	labels := prometheus.Labels{}
+
+	if _, ok := md.tags["Application"]; ok {
+		labels["Application"] = md.tags["Application"]
+	}
+
+	if _, ok := md.tags["Environment"]; ok {
+		labels["Environment"] = md.tags["Environment"]
+	}
+
+	stack_value, stack_ok := md.tags["Stack"]
+	role_value, role_ok := md.tags["Role"]
+
+	if stack_ok && role_ok {
+		labels["Stack_Role"] = stack_value + "_" + role_value
+	}
+
+	labels["Host"] = md.instanceId
+	labels["instance"] = vl.Host
+
 	if vl.PluginInstance != "" {
 		labels[vl.Plugin] = vl.PluginInstance
 	}
+
 	if vl.TypeInstance != "" {
 		if vl.PluginInstance == "" {
 			labels[vl.Plugin] = vl.TypeInstance
@@ -88,21 +113,28 @@ func newLabels(vl api.ValueList) prometheus.Labels {
 			labels["type"] = vl.TypeInstance
 		}
 	}
-	labels["instance"] = vl.Host
+
+	log.Debugf("DSNames: %v, Values: %v, Type: %v, labels: %v", vl.DSNames, vl.Values, vl.Type, labels)
 
 	return labels
 }
 
+func sanitize(input string) string {
+	re, _ := regexp.Compile("-")
+	actual := string(re.ReplaceAll([]byte(input), []byte("_")))
+	return strings.ToLower(actual)
+}
+
 // newDesc converts one data source of a value list to a Prometheus description.
-func newDesc(vl api.ValueList, index int) *prometheus.Desc {
+func newDesc(vl api.ValueList, index int, md metadata) *prometheus.Desc {
 	help := fmt.Sprintf("Collectd exporter: '%s' Type: '%s' Dstype: '%T' Dsname: '%s'",
 		vl.Plugin, vl.Type, vl.Values[index], vl.DSName(index))
 
-	return prometheus.NewDesc(newName(vl, index), help, []string{}, newLabels(vl))
+	return prometheus.NewDesc(newName(vl, index), help, []string{}, newLabels(vl, md))
 }
 
 // newMetric converts one data source of a value list to a Prometheus metric.
-func newMetric(vl api.ValueList, index int) (prometheus.Metric, error) {
+func newMetric(vl api.ValueList, index int, md metadata) (prometheus.Metric, error) {
 	var value float64
 	var valueType prometheus.ValueType
 
@@ -120,13 +152,20 @@ func newMetric(vl api.ValueList, index int) (prometheus.Metric, error) {
 		return nil, fmt.Errorf("unknown value type: %T", v)
 	}
 
-	return prometheus.NewConstMetric(newDesc(vl, index), valueType, value)
+	return prometheus.NewConstMetric(newDesc(vl, index, md), valueType, value)
 }
 
 type collectdCollector struct {
 	ch         chan api.ValueList
 	valueLists map[string]api.ValueList
 	mu         *sync.Mutex
+	md         metadata
+}
+
+type metadata struct {
+	tags             map[string]string
+	instanceId       string
+	privateIpAddress string
 }
 
 func newCollectdCollector() *collectdCollector {
@@ -134,31 +173,51 @@ func newCollectdCollector() *collectdCollector {
 		ch:         make(chan api.ValueList, 0),
 		valueLists: make(map[string]api.ValueList),
 		mu:         &sync.Mutex{},
+		md: metadata{
+			tags: make(map[string]string),
+		},
 	}
 	go c.processSamples()
 	return c
 }
 
-func (c *collectdCollector) collectdPost(w http.ResponseWriter, r *http.Request) {
+func (c *collectdCollector) CollectdPost(w http.ResponseWriter, r *http.Request) {
+	log.Infof("processing %v request", *collectdPostPath)
+
 	data, err := ioutil.ReadAll(r.Body)
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Error("tpp error:", err.Error())
 		return
 	}
 
 	var valueLists []*api.ValueList
+
 	if err := json.Unmarshal(data, &valueLists); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Error("unmarshal error:", err.Error())
 		return
 	}
 
 	for _, vl := range valueLists {
+		log.Debugf("host:%v, values:%v, DSNames:%v, time:%v, type:%v, plugins:%v, interval:%v, identifier:%v",
+			vl.Host, vl.Values, vl.DSNames, vl.Time, vl.Type, vl.Plugin, vl.Interval, vl.Identifier)
 		c.Write(r.Context(), vl)
 	}
 }
 
 func (c *collectdCollector) processSamples() {
+	log.Infoln("processSamples")
+
 	ticker := time.NewTicker(time.Minute).C
+
+	var duration = time.Duration(*metadataRefreshPeriod) * time.Minute
+
+	log.Infof("metadata refresh period: %v min", duration.Minutes())
+
+	tag_ticker := time.NewTicker(duration).C
+
 	for {
 		select {
 		case vl := <-c.ch:
@@ -168,7 +227,7 @@ func (c *collectdCollector) processSamples() {
 			c.mu.Unlock()
 
 		case <-ticker:
-			// Garbage collect expired value lists.
+		// Garbage collect expired value lists.
 			now := time.Now()
 			c.mu.Lock()
 			for id, vl := range c.valueLists {
@@ -178,12 +237,19 @@ func (c *collectdCollector) processSamples() {
 				}
 			}
 			c.mu.Unlock()
+
+		case <-tag_ticker:
+			c.mu.Lock()
+			go refreshMetadata(c)
+			c.mu.Unlock()
 		}
 	}
 }
 
 // Collect implements prometheus.Collector.
 func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
+	log.Infof("processing %v request", *metricsPath)
+
 	ch <- lastPush
 
 	c.mu.Lock()
@@ -194,6 +260,7 @@ func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 	c.mu.Unlock()
 
 	now := time.Now()
+
 	for _, vl := range valueLists {
 		validUntil := vl.Time.Add(timeout * vl.Interval)
 		if validUntil.Before(now) {
@@ -201,7 +268,7 @@ func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 
 		for i := range vl.Values {
-			m, err := newMetric(vl, i)
+			m, err := newMetric(vl, i, c.md)
 			if err != nil {
 				log.Errorf("newMetric: %v", err)
 				continue
@@ -293,6 +360,111 @@ func init() {
 	prometheus.MustRegister(version.NewCollector("collectd_exporter"))
 }
 
+func refreshMetadata(c *collectdCollector) {
+	log.Info("refresh metadata")
+
+	var expectedTags map[string]int
+
+	expectedTags = make(map[string]int)
+	expectedTags["Name"] = 1
+	expectedTags["Application"] = 1
+	expectedTags["Environment"] = 1
+	expectedTags["Stack"] = 1
+	expectedTags["Role"] = 1
+
+	log.Debugf("expected tags:", expectedTags)
+
+	// retrieve ec2 instance id
+	resp, err := http.Get("http://169.254.169.254/latest/meta-data/instance-id")
+
+	if err != nil {
+		log.Errorf("Failed to call introspection api to retrieve instance id, %v", err)
+		return
+	}
+
+	defer resp.Body.Close()
+
+	data, err := ioutil.ReadAll(resp.Body)
+
+	c.md.instanceId = string(data)
+
+	log.Infof("instance-id: %v", c.md.instanceId)
+
+	// retrieve ec2 private ip address
+	ip_resp, ip_err := http.Get("http://169.254.169.254/latest/meta-data/local-ipv4")
+
+	if ip_err != nil {
+		log.Errorf("Failed to call introspection api to retrieve private IP address, %v", ip_err)
+		return
+	}
+
+	defer ip_resp.Body.Close()
+
+	ip_data, _ := ioutil.ReadAll(ip_resp.Body)
+
+	c.md.privateIpAddress = string(ip_data)
+
+	log.Infof("private-ip: %v", c.md.privateIpAddress)
+
+	// retrieve ec2 AZ
+	az_resp, az_err := http.Get("http://169.254.169.254/latest/meta-data/placement/availability-zone/")
+
+	if az_err != nil {
+		log.Errorf("Failed to call introspection api to retrieve AZ, %v", az_err)
+		return
+	}
+
+	defer az_resp.Body.Close()
+
+	az_data, az_err := ioutil.ReadAll(az_resp.Body)
+
+	var az string = string(az_data)
+
+	var region string = az[0 : len(az)-1]
+
+	log.Infof("region: %v", region)
+
+	// ec2 api call
+	session, err := session.NewSession()
+
+	if err != nil {
+		log.Errorf("failed to create session %v\n", err)
+		return
+	}
+
+	service := ec2.New(session, &aws.Config{Region: aws.String(region)})
+
+	params := &ec2.DescribeTagsInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("resource-id"),
+				Values: []*string{
+					aws.String(c.md.instanceId),
+				},
+			},
+		},
+	}
+
+	describeTagsRes, err := service.DescribeTags(params)
+
+	if err != nil {
+		log.Errorf("failed to call ec2.describe_tags %v\n", err)
+		return
+	}
+
+	for _, tag := range describeTagsRes.Tags {
+		if _, ok := expectedTags[*tag.Key]; ok {
+			//var s_key string = sanitize(*tag.Key)
+			//var s_value string = sanitize(*tag.Value)
+
+			c.md.tags[*tag.Key] = *tag.Value
+
+			log.Infof("tag-key:%v, tag-value: %v", *tag.Key, c.md.tags[*tag.Key])
+		}
+	}
+
+}
+
 func main() {
 	flag.Parse()
 
@@ -307,10 +479,12 @@ func main() {
 	c := newCollectdCollector()
 	prometheus.MustRegister(c)
 
+	go refreshMetadata(c)
+
 	startCollectdServer(context.Background(), c)
 
 	if *collectdPostPath != "" {
-		http.HandleFunc(*collectdPostPath, c.collectdPost)
+		http.HandleFunc(*collectdPostPath, c.CollectdPost)
 	}
 
 	http.Handle(*metricsPath, prometheus.Handler())
