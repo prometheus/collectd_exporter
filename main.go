@@ -85,21 +85,21 @@ func newLabels(vl api.ValueList, md metadata) prometheus.Labels {
 	labels := prometheus.Labels{}
 
 	if _, ok := md.tags["Application"]; ok {
-		labels["Application"] = md.tags["Application"]
+		labels["application"] = md.tags["Application"]
 	}
 
 	if _, ok := md.tags["Environment"]; ok {
-		labels["Environment"] = md.tags["Environment"]
+		labels["environment"] = md.tags["Environment"]
 	}
 
 	stack_value, stack_ok := md.tags["Stack"]
 	role_value, role_ok := md.tags["Role"]
 
 	if stack_ok && role_ok {
-		labels["Stack_Role"] = stack_value + "_" + role_value
+		labels["stack_role"] = stack_value + "_" + role_value
 	}
 
-	labels["Host"] = md.instanceId
+	labels["host"] = md.instanceId
 	labels["instance"] = vl.Host
 
 	if vl.PluginInstance != "" {
@@ -227,7 +227,7 @@ func (c *collectdCollector) processSamples() {
 			c.mu.Unlock()
 
 		case <-ticker:
-		// Garbage collect expired value lists.
+			// Garbage collect expired value lists.
 			now := time.Now()
 			c.mu.Lock()
 			for id, vl := range c.valueLists {

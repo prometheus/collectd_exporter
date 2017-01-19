@@ -1,7 +1,7 @@
 go:
     version: 1.7
 repository:
-    path: github.com/prometheus/collectd_exporter
+    path: tmobile/collectd_exporter
 build:
     flags: -a -tags netgo
     ldflags: |

@@ -81,8 +81,8 @@ To be able to build from source code, you need to have a working Go environment 
 
 Follow the steps here to build using `make`:
 
-    $ mkdir -p $GOPATH/src/github.com/prometheus
-    $ cd $GOPATH/src/github.com/prometheus
+    $ mkdir -p $GOPATH/src/tmobile/collectd_exporter
+    $ cd $GOPATH/src/tmobile/collectd_exporter
     $ git clone git@github.com:dev9com/collectd_exporter.git
     $ cd collectd_exporter
     $ make all
@@ -94,6 +94,12 @@ The Makefile provides several targets:
   * *docker*: build a docker container for the current `HEAD`
   * all: execute `format`, `build`, `docker` goals.
 
+Alternatively, you can also run the following command to build the source.
+
+```
+$ go build -o collectd-exporter
+```
+
 
 ### Build Artifact
 
@@ -103,7 +109,7 @@ The Makefile provides several targets:
 ### Note
 * Depends on the platform you are using to build the binary, the artifact is only capable of running on the platform you build it with.
 
-* Use the `go env` command to find out which `architecture` and `os` you are building with. The following configuration is for buidling to run on Linux platform.
+* Use the `go env` command to find out which `architecture` and `os` you are building with. The following configuration is for buidling to run on Linux platform. See https://github.com/golang/go/blob/master/src/go/build/syslist.go for the list of supported OS and CPU architecture.
 
 	`GOARCH="amd64"`
 	
@@ -120,6 +126,17 @@ To run the executable binary from the command line
 To run the Docker container
 
 ```docker run -d  -p 9103:9103 -p 25826:25826/udp tmobile/collectd-exporter -collectd.listen-address=":25826" -metadata.refresh.period.min="1"```
+
+
+## Jenkins Server and Jenkinsfile
+* Alternatively, if you have a Jenkins server which supports Pipeline, you can build the artifact using the Jenkinsfile.
+
+* See [Provisioning Jenkins Server in AWS](./docs/ProvisioningJenkinsServerinAWS.pdf) for an example of setting up a AWS EC2 instance and installing Jenkins server.
+
+* See [Jenkins Job For Building CollectD Exporter Using Jenkinsfile](./docs/JenkinsJobForBuildingCollectDExporterUsingJenkinsfile.pdf) for setting up Jenkins job.
+
+* See [config.xml](./jenkins/config.xml) for an sample of Jenkins job configuration file. You would need to use the actual credentials id configured on the Jenkins server.
+
 
 
 
