@@ -6,6 +6,14 @@
 *.test
 *-stamp
 
+# Eclipse #
+###########
+.settings/
+.classpath
+.project
+.springBeans
+.factorypath
+
 # IntelliJ #
 ############
 /.idea/

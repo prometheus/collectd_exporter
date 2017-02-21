@@ -6,7 +6,7 @@ class Build {
     static String SOURCE_DIRECTORY = "go/src/tmobile/collectd_exporter"
 }
 
-node {
+node ("$NODE") {
     echoParameters()
 
     docker.image("$GoLangVersion").inside {
@@ -52,10 +52,11 @@ node {
 }
 
 def echoParameters() {
+  echo "NODE: $NODE"
   echo "GitRepoUrl: $GitRepoUrl"
-  echo "GoLangVersion: $GoLangVersion"
   echo "GitRepoCredentialId: $GitRepoCredentialId"
+  echo "Branch: $Branch"
+  echo "GoLangVersion: $GoLangVersion"
   echo "GOOS: $GOOS"
   echo "GOARCH: $GOARCH"
-  echo "Branch: $Branch"
 }
