@@ -17,11 +17,14 @@ pkgs   = $(shell $(GO) list ./... | grep -v /vendor/)
 
 PREFIX                  ?= $(shell pwd)
 BIN_DIR                 ?= $(shell pwd)
-DOCKER_IMAGE_NAME       ?= collectd-exporter
-DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
+#DOCKER_IMAGE_NAME       ?= collectd-exporter
+#DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
+
+DOCKER_IMAGE_NAME       ?= tmobile/collectd-exporter
+DOCKER_IMAGE_TAG        ?= latest
 
 
-all: format build test
+all: format build docker
 
 style:
 	@echo ">> checking code style"

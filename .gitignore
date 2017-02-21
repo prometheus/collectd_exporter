@@ -1,7 +1,62 @@
-/.build
-/.release
-/.tarballs
-/collectd_exporter
-*.tar.gz
-*.test
-*-stamp
+# Docker #
+##########
+.dockerize
+
+# Maven #
+#########
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.apt_generated/
+
+# Eclipse #
+###########
+.settings/
+.classpath
+.project
+.springBeans
+.factorypath
+
+# IntelliJ #
+############
+/.idea/
+*.iml
+
+# OS #
+######
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+*.log
+*.bak
+*~
+.*.swp
+*.dll
+*.exe
+
+# Application #
+###############
+logs/
+
+# Overrides #
+#############
+/src/main/resources/config/
+
+# Terraform #
+#############
+terraform.tfplan
+terraform.tfstate
+terraform.tfstate.*
+.terraform/
+./*.tfstate
+*.tfvars
