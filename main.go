@@ -36,10 +36,17 @@ import (
 	"time"
 )
 
-// timeout specifies the number of iterations after which a metric times out,
-// i.e. becomes stale and is removed from collectdCollector.valueLists. It is
-// modeled and named after the top-level "Timeout" setting of collectd.
-const timeout = 2
+const (
+	// Backfill value for missing/empty, required tags. NOTE: this value must align with the one declared in the
+	// Java code for the aws-surveiller project. See:
+	// https://github.com/dev9com/aws-surveiller/src/main/java/com/tmobile/ucm/surveiller/model/Constants.java
+	Untagged = "UNTAGGED"
+
+	// timeout specifies the number of iterations after which a metric times out,
+	// i.e. becomes stale and is removed from collectdCollector.valueLists. It is
+	// modeled and named after the top-level "Timeout" setting of collectd.
+	timeout = 2
+)
 
 var (
 	showVersion      = flag.Bool("version", false, "Print version information.")
@@ -59,6 +66,21 @@ var (
 	)
 
 	metadataRefreshPeriod = flag.Int("metadata.refresh.period.min", 1, "refresh period in mins for retrieving metadata")
+
+	// Required resource tags used for mapping to Prometheus metric labels. This set of tags needs to align with
+	// those defined in the aws-surveiller project
+	ETagApplication = "Application"
+	ETagEnvironment = "Environment"
+	ETagStack       = "Stack"
+	ETagRole        = "Role"
+	ETagName        = "Name"
+	expectedTags    = map[string]int{
+		ETagName:        1,
+		ETagApplication: 1,
+		ETagEnvironment: 1,
+		ETagStack:       1,
+		ETagRole:        1,
+	}
 )
 
 // newName converts one data source of a value list to a string representation.
@@ -84,21 +106,29 @@ func newName(vl api.ValueList, index int) string {
 func newLabels(vl api.ValueList, md metadata) prometheus.Labels {
 	labels := prometheus.Labels{}
 
-	if _, ok := md.tags["Application"]; ok {
-		labels["application"] = md.tags["Application"]
+	// Process the expectedTags. At this point of this function call, all the expectedTags should be present
+	// where any missing, expected tag should have already been backfilled with a default value
+	var stackValue, roleValue *string = nil, nil
+	for eTag, _ := range expectedTags {
+		if tagVal, ok := md.tags[eTag]; ok {
+			// Special case for Stack and Role as we need to merge their tag keys/values into a single tag
+			if eTag == ETagStack {
+				stackValue = &tagVal
+			} else if eTag == ETagRole {
+				roleValue = &tagVal
+			} else {
+				labels[strings.ToLower(eTag)] = tagVal
+			}
+		}
+	}
+	if stackValue != nil && roleValue != nil {
+		labels[strings.Join([]string{strings.ToLower(ETagStack), strings.ToLower(ETagRole)}, "_")] =
+			strings.Join([]string{*stackValue, *roleValue}, "_")
 	}
 
-	if _, ok := md.tags["Environment"]; ok {
-		labels["environment"] = md.tags["Environment"]
-	}
+	// TODO: Extra-defensive? Validate all required tags are present?
 
-	stack_value, stack_ok := md.tags["Stack"]
-	role_value, role_ok := md.tags["Role"]
-
-	if stack_ok && role_ok {
-		labels["stack_role"] = stack_value + "_" + role_value
-	}
-
+	// Additional tags
 	labels["host"] = md.instanceId
 	labels["instance"] = vl.Host
 
@@ -363,15 +393,6 @@ func init() {
 func refreshMetadata(c *collectdCollector) {
 	log.Info("refresh metadata")
 
-	var expectedTags map[string]int
-
-	expectedTags = make(map[string]int)
-	expectedTags["Name"] = 1
-	expectedTags["Application"] = 1
-	expectedTags["Environment"] = 1
-	expectedTags["Stack"] = 1
-	expectedTags["Role"] = 1
-
 	log.Debugf("expected tags:", expectedTags)
 
 	// retrieve ec2 instance id
@@ -452,17 +473,48 @@ func refreshMetadata(c *collectdCollector) {
 		return
 	}
 
-	for _, tag := range describeTagsRes.Tags {
+	backfillTags(c, describeTagsRes)
+}
+
+func backfillTags(c *collectdCollector, resourceTagsOutput *ec2.DescribeTagsOutput) {
+	// Build a map of the resource's tags
+	var resourceTagMap = make(map[string]string)
+	for _, tag := range resourceTagsOutput.Tags {
+		resourceTagMap[*tag.Key] = *tag.Value
+	}
+
+	// Determine the missing, expected tags
+	var missingTags = make(map[string]string)
+	for k, _ := range expectedTags {
+		if val, ok := resourceTagMap[k]; ok {
+			// Expected tag is defined for resource. Check to see if it's empty
+			if len(strings.TrimSpace(val)) == 0 {
+				// Expected tag found in resource, but it's value is empty. Stage the backfill in the
+				// missingTags map
+				missingTags[k] = Untagged
+			}
+		} else {
+			missingTags[k] = Untagged
+		}
+	}
+
+	// Set the provided, expected tags from the resource to the collector
+	for _, tag := range resourceTagsOutput.Tags {
 		if _, ok := expectedTags[*tag.Key]; ok {
 			//var s_key string = sanitize(*tag.Key)
 			//var s_value string = sanitize(*tag.Value)
 
 			c.md.tags[*tag.Key] = *tag.Value
-
 			log.Infof("tag-key:%v, tag-value: %v", *tag.Key, c.md.tags[*tag.Key])
 		}
 	}
 
+	// Add the missing (backfilled), expected tags to the collector. Important to do the missing tags last so we
+	// can overwrite those expected tags in the resource which have an empty value with the backfill value
+	for k, v := range missingTags {
+		c.md.tags[k] = v
+		log.Infof("missing-tag-key:%v, missing-tag-value: %v", k, c.md.tags[k])
+	}
 }
 
 func main() {

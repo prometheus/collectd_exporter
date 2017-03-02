@@ -1,6 +1,5 @@
 # Collectd Exporter 
 
-
 An exporter for [collectd](https://collectd.org/). It accepts collectd's
 [binary network protocol](https://collectd.org/wiki/index.php/Binary_protocol)
 as sent by collectd's
@@ -12,6 +11,18 @@ and transforms and exposes them for consumption by Prometheus.
 This is useful for exporting metrics from existing collectd setups, as
 well as for metrics which are not covered by the core Prometheus exporters such
 as the [Node Exporter](https://github.com/prometheus/node_exporter).
+
+## Prerequisites
+* Install Go 1.7.4
+* Once you have Go installed, set up a directory where Go packages will be downloaded. Point the GOPATH environment variable to this directory
+* Install the AWS SDK for Go
+```
+$ go get github.com/aws/aws-sdk-go/aws
+```
+* If you enhance/fix the code and add unit tests, there is an assertion package which you can install if you'd like assertions in your tests
+```
+$ go get github.com/stretchr/testify/assert
+```
 
 ## AWS EC2 Specifics
 
@@ -77,12 +88,12 @@ line option. To disable this functionality altogether, use
 
 ## Build
 
-To be able to build from source code, you need to have a working Go environment with [verion 1.7 or greater](https://golang.org/doc/install) installed.
+To be able to build from source code, you need to have a working Go environment with [version 1.7 or greater](https://golang.org/doc/install) installed.
 
 Follow the steps here to build using `make`:
 
-    $ mkdir -p $GOPATH/src/tmobile/collectd_exporter
-    $ cd $GOPATH/src/tmobile/collectd_exporter
+    $ mkdir -p $GOPATH/src/tmobile
+    $ cd $GOPATH/src/tmobile
     $ git clone git@github.com:dev9com/collectd_exporter.git
     $ cd collectd_exporter
     $ make all
@@ -109,7 +120,7 @@ $ go build -o collectd-exporter
 ### Note
 * Depends on the platform you are using to build the binary, the artifact is only capable of running on the platform you build it with.
 
-* Use the `go env` command to find out which `architecture` and `os` you are building with. The following configuration is for buidling to run on Linux platform. See https://github.com/golang/go/blob/master/src/go/build/syslist.go for the list of supported OS and CPU architecture.
+* Use the `go env` command to find out which `architecture` and `os` you are building with. The following configuration is for building to run on Linux platform. See https://github.com/golang/go/blob/master/src/go/build/syslist.go for the list of supported OS and CPU architecture.
 
 	`GOARCH="amd64"`
 	

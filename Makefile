@@ -24,7 +24,7 @@ DOCKER_IMAGE_NAME       ?= tmobile/collectd-exporter
 DOCKER_IMAGE_TAG        ?= latest
 
 
-all: format build docker
+all: format test build docker
 
 style:
 	@echo ">> checking code style"
