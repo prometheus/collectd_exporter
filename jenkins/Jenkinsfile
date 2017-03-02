@@ -27,19 +27,6 @@ node ("$NODE") {
             }
         }
 
-        stage("Test") {
-            // construct the path to the go directory
-            env.GOPATH= sh(script: 'pwd', returnStdout: true).trim() + "/go"
-
-            // echo go environment variables
-            sh "go env"
-
-            dir("${Build.SOURCE_DIRECTORY}") {
-                // test
-                sh "go test"
-            }
-        }
-
         stage("Build") {
             // construct the path to the go directory
             env.GOPATH= sh(script: 'pwd', returnStdout: true).trim() + "/go"
