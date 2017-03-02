@@ -498,6 +498,8 @@ func backfillTags(c *collectdCollector, resourceTagsOutput *ec2.DescribeTagsOutp
 		}
 	}
 
+	log.Infof("Found %d missing tags", len(missingTags))
+
 	// Set the provided, expected tags from the resource to the collector
 	for _, tag := range resourceTagsOutput.Tags {
 		if _, ok := expectedTags[*tag.Key]; ok {
