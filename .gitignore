@@ -5,3 +5,33 @@
 *.tar.gz
 *.test
 *-stamp
+
+# Eclipse #
+###########
+.settings/
+.classpath
+.project
+.springBeans
+.factorypath
+
+# IntelliJ #
+############
+/.idea/
+*.iml
+
+# OS #
+######
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+*.log
+*.bak
+*~
+.*.swp
+*.dll
+*.exe
