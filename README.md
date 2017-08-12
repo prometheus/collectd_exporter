@@ -30,7 +30,7 @@ LoadPlugin network
 </Plugin>
 ```
 
-Then start *collectd_exporter* with `-collectd.listen-address=":25826"` to
+Then start *collectd_exporter* with `--collectd.listen-address=":25826"` to
 start consuming and exporting these metrics.
 
 ## JSON format
@@ -51,9 +51,9 @@ LoadPlugin write_http
 </Plugin>
 ```
 
-To change the path of the end-point, use the `-web.collectd-push-path` command
+To change the path of the end-point, use the `--web.collectd-push-path` command
 line option. To disable this functionality altogether, use
-`-web.collectd-push-path=""`.
+`--web.collectd-push-path=""`.
 
 ## Using Docker
 
@@ -66,7 +66,7 @@ For example:
 ```bash
 docker pull prom/collectd-exporter
 
-docker run -d -p 9103:9103 -p 25826:25826/udp prom/collectd-exporter -collectd.listen-address=":25826"
+docker run -d -p 9103:9103 -p 25826:25826/udp prom/collectd-exporter --collectd.listen-address=":25826"
 ```
 
 

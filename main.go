@@ -16,7 +16,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -31,6 +30,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/version"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 // timeout specifies the number of iterations after which a metric times out,
@@ -39,15 +39,14 @@ import (
 const timeout = 2
 
 var (
-	showVersion      = flag.Bool("version", false, "Print version information.")
-	listenAddress    = flag.String("web.listen-address", ":9103", "Address on which to expose metrics and web interface.")
-	collectdAddress  = flag.String("collectd.listen-address", "", "Network address on which to accept collectd binary network packets, e.g. \":25826\".")
-	collectdBuffer   = flag.Int("collectd.udp-buffer", 0, "Size of the receive buffer of the socket used by collectd binary protocol receiver.")
-	collectdAuth     = flag.String("collectd.auth-file", "", "File mapping user names to pre-shared keys (passwords).")
-	collectdSecurity = flag.String("collectd.security-level", "None", "Minimum required security level for accepted packets. Must be one of \"None\", \"Sign\" and \"Encrypt\".")
-	collectdTypesDB  = flag.String("collectd.typesdb-file", "", "Collectd types.db file for datasource names mapping. Needed only if using a binary network protocol.")
-	metricsPath      = flag.String("web.telemetry-path", "/metrics", "Path under which to expose Prometheus metrics.")
-	collectdPostPath = flag.String("web.collectd-push-path", "/collectd-post", "Path under which to accept POST requests from collectd.")
+	listenAddress    = kingpin.Flag("web.listen-address", "Address on which to expose metrics and web interface.").Default(":9103").String()
+	collectdAddress  = kingpin.Flag("collectd.listen-address", "Network address on which to accept collectd binary network packets, e.g. \":25826\".").Default("").String()
+	collectdBuffer   = kingpin.Flag("collectd.udp-buffer", "Size of the receive buffer of the socket used by collectd binary protocol receiver.").Default("0").Int()
+	collectdAuth     = kingpin.Flag("collectd.auth-file", "File mapping user names to pre-shared keys (passwords).").Default("").String()
+	collectdSecurity = kingpin.Flag("collectd.security-level", "Minimum required security level for accepted packets. Must be one of \"None\", \"Sign\" and \"Encrypt\".").Default("None").String()
+	collectdTypesDB  = kingpin.Flag("collectd.typesdb-file", "Collectd types.db file for datasource names mapping. Needed only if using a binary network protocol.").Default("").String()
+	metricsPath      = kingpin.Flag("web.telemetry-path", "Path under which to expose Prometheus metrics.").Default("/metrics").String()
+	collectdPostPath = kingpin.Flag("web.collectd-push-path", "Path under which to accept POST requests from collectd.").Default("/collectd-post").String()
 	lastPush         = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "collectd_last_push_timestamp_seconds",
@@ -294,12 +293,10 @@ func init() {
 }
 
 func main() {
-	flag.Parse()
-
-	if *showVersion {
-		fmt.Fprintln(os.Stdout, version.Print("collectd_exporter"))
-		os.Exit(0)
-	}
+	log.AddFlags(kingpin.CommandLine)
+	kingpin.Version(version.Print("collectd_exporter"))
+	kingpin.HelpFlag.Short('h')
+	kingpin.Parse()
 
 	log.Infoln("Starting collectd_exporter", version.Info())
 	log.Infoln("Build context", version.BuildContext())
