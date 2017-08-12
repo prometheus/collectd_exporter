@@ -22,7 +22,7 @@
 		},
 		{
 			"checksumSHA1": "SdEcxwaW92m0H3pao3BPj2ZpvaU=",
-			"path": "github.com/Sirupsen/logrus",
+			"path": "github.com/sirupsen/logrus",
 			"revision": "446d1c146faa8ed3f4218f056fcd165f6bcfda81",
 			"revisionTime": "2015-12-04T14:14:43Z"
 		},
