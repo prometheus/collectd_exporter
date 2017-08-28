@@ -1,0 +1,6 @@
+FROM ppc64le/busybox:latest
+
+COPY collectd_exporter /bin/collectd_exporter
+
+EXPOSE      9103
+ENTRYPOINT  [ "/bin/collectd_exporter" ]
