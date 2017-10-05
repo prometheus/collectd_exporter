@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -53,6 +54,7 @@ var (
 			Help: "Unix timestamp of the last received collectd metrics push in seconds.",
 		},
 	)
+	metric_name_re = regexp.MustCompile("[^a-zA-Z0-9_:]")
 )
 
 // newName converts one data source of a value list to a string representation.
@@ -71,7 +73,7 @@ func newName(vl api.ValueList, index int) string {
 		name += "_total"
 	}
 
-	return name
+	return metric_name_re.ReplaceAllString(name, "_")
 }
 
 // newLabels converts the plugin and type instance of vl to a set of prometheus.Labels.

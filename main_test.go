@@ -83,6 +83,14 @@ func TestNewName(t *testing.T) {
 			DSNames: []string{"rx", "tx"},
 			Values:  []api.Value{api.Counter(0), api.Counter(1)},
 		}, 1, "collectd_interface_if_octets_tx_total"},
+		{api.ValueList{
+			Identifier: api.Identifier{
+				Plugin: "docker",
+				Type:   "cpu.percent",
+			},
+			DSNames: []string{"value"},
+			Values:  []api.Value{api.Gauge(0)},
+		}, 0, "collectd_docker_cpu_percent"},
 	}
 
 	for _, c := range cases {
