@@ -266,15 +266,19 @@ func startCollectdServer(ctx context.Context, w api.Writer) {
 		log.Fatalf("Unknown security level %q. Must be one of \"None\", \"Sign\" and \"Encrypt\".", *collectdSecurity)
 	}
 
-	laddr, err := net.ResolveUDPAddr("udp", *collectdAddress)
+	proto := "udp"
+	if strings.HasPrefix(*collectdAddress, "[") {
+		proto = "udp6"
+	}
+	laddr, err := net.ResolveUDPAddr(proto, *collectdAddress)
 	if err != nil {
 		log.Fatalf("Failed to resolve binary protocol listening UDP address %q: %v", *collectdAddress, err)
 	}
 
 	if laddr.IP != nil && laddr.IP.IsMulticast() {
-		srv.Conn, err = net.ListenMulticastUDP("udp", nil, laddr)
+		srv.Conn, err = net.ListenMulticastUDP(proto, nil, laddr)
 	} else {
-		srv.Conn, err = net.ListenUDP("udp", laddr)
+		srv.Conn, err = net.ListenUDP(proto, laddr)
 	}
 	if err != nil {
 		log.Fatalf("Failed to create a socket for a binary protocol server: %v", err)
