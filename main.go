@@ -279,7 +279,7 @@ func startCollectdServer(ctx context.Context, w api.Writer) {
 	if err != nil {
 		log.Fatalf("Failed to create a socket for a binary protocol server: %v", err)
 	}
-	if *collectdBuffer >= 0 {
+	if *collectdBuffer > 0 {
 		if err = srv.Conn.SetReadBuffer(*collectdBuffer); err != nil {
 			log.Fatalf("Failed to adjust a read buffer of the socket: %v", err)
 		}
