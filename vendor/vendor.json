@@ -119,10 +119,18 @@
 			"revisionTime": "2017-12-26T18:39:07Z"
 		},
 		{
-			"checksumSHA1": "SdEcxwaW92m0H3pao3BPj2ZpvaU=",
+			"checksumSHA1": "ySaT8G3I3y4MmnoXOYAAX0rC+p8=",
 			"path": "github.com/sirupsen/logrus",
-			"revision": "446d1c146faa8ed3f4218f056fcd165f6bcfda81",
-			"revisionTime": "2015-12-04T14:14:43Z"
+			"revision": "d682213848ed68c0a260ca37d6dd5ace8423f5ba",
+			"revisionTime": "2017-12-05T20:32:29Z",
+			"version": "v1.0.4",
+			"versionExact": "v1.0.4"
+		},
+		{
+			"checksumSHA1": "X1NTlfcau2XcV6WtAHF6b/DECOA=",
+			"path": "golang.org/x/crypto/ssh/terminal",
+			"revision": "39efaea5da11abd5e2b90a435b1f338cdb94619c",
+			"revisionTime": "2018-01-10T16:35:17Z"
 		},
 		{
 			"checksumSHA1": "c8iMfP5+K3GEg26HJiO0OVVLiM4=",
@@ -153,6 +161,11 @@
 			"path": "gopkg.in/alecthomas/kingpin.v2",
 			"revision": "1087e65c9441605df944fb12c33f0fe7072d18ca",
 			"revisionTime": "2017-07-27T04:22:29Z"
+		},
+		{
+			"checksumSHA1": "n9yy9EH83S4k4hv41FQTrnLARDw=",
+			"path": "vendor",
+			"revision": ""
 		}
 	],
 	"rootPath": "github.com/prometheus/collectd_exporter"
