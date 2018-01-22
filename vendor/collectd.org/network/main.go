@@ -8,6 +8,7 @@ const (
 	DefaultIPv4Address = "239.192.74.66"
 	DefaultIPv6Address = "ff18::efc0:4a42"
 	DefaultService     = "25826"
+	DefaultPort        = 25826
 )
 
 // Default size of "Buffer". This is based on the maximum bytes that fit into

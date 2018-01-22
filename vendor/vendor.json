@@ -5,26 +5,20 @@
 		{
 			"checksumSHA1": "t/SEkGSl0/OEKHNyUpsYrwcsfus=",
 			"path": "collectd.org/api",
-			"revision": "c19ea48bfbf6f5aaa23a06f5cea768b7cfdd8fb5",
-			"revisionTime": "2016-09-12T13:33:33Z"
+			"revision": "606bd390f38f050824c77208d6715ed59e3692ac",
+			"revisionTime": "2017-10-25T11:30:07Z"
 		},
 		{
 			"checksumSHA1": "VTTIMq9P+UTmF8NIainR7EbobM0=",
 			"path": "collectd.org/cdtime",
-			"revision": "c19ea48bfbf6f5aaa23a06f5cea768b7cfdd8fb5",
-			"revisionTime": "2016-09-12T13:33:33Z"
+			"revision": "606bd390f38f050824c77208d6715ed59e3692ac",
+			"revisionTime": "2017-10-25T11:30:07Z"
 		},
 		{
-			"checksumSHA1": "nYaRVCWraVHXiyXVa93rKs9aw0o=",
+			"checksumSHA1": "aAiq2VhtIQRvPVZ8ym0k/ksx3tw=",
 			"path": "collectd.org/network",
-			"revision": "c19ea48bfbf6f5aaa23a06f5cea768b7cfdd8fb5",
-			"revisionTime": "2016-09-12T13:33:33Z"
-		},
-		{
-			"checksumSHA1": "SdEcxwaW92m0H3pao3BPj2ZpvaU=",
-			"path": "github.com/sirupsen/logrus",
-			"revision": "446d1c146faa8ed3f4218f056fcd165f6bcfda81",
-			"revisionTime": "2015-12-04T14:14:43Z"
+			"revision": "606bd390f38f050824c77208d6715ed59e3692ac",
+			"revisionTime": "2017-10-25T11:30:07Z"
 		},
 		{
 			"checksumSHA1": "KmjnydoAbofMieIWm+it5OWERaM=",
@@ -109,6 +103,12 @@
 			"path": "github.com/prometheus/procfs",
 			"revision": "abf152e5f3e97f2fafac028d2cc06c1feb87ffa5",
 			"revisionTime": "2016-04-11T19:08:41Z"
+		},
+		{
+			"checksumSHA1": "SdEcxwaW92m0H3pao3BPj2ZpvaU=",
+			"path": "github.com/sirupsen/logrus",
+			"revision": "446d1c146faa8ed3f4218f056fcd165f6bcfda81",
+			"revisionTime": "2015-12-04T14:14:43Z"
 		},
 		{
 			"checksumSHA1": "c8iMfP5+K3GEg26HJiO0OVVLiM4=",

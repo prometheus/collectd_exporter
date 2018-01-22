@@ -23,8 +23,13 @@ func ListenAndWrite(ctx context.Context, address string, d api.Writer) error {
 
 // Server holds parameters for running a collectd server.
 type Server struct {
-	Conn           *net.UDPConn   // UDP connection the server listens on.
-	Addr           string         // Address to listen on if Conn is nil.
+	// UDP connection the server listens on. If Conn is nil, a new server
+	// connection is opened. The connection is closed by ListenAndWrite
+	// before returning.
+	Conn *net.UDPConn
+	// Address to listen on if Conn is nil. If Addr is empty, too, then the
+	// "any" interface and the DefaultService will be used.
+	Addr           string
 	Writer         api.Writer     // Object used to send incoming ValueLists to.
 	BufferSize     uint16         // Maximum packet size to accept.
 	PasswordLookup PasswordLookup // User to password lookup.
@@ -64,10 +69,6 @@ func (srv *Server) ListenAndWrite(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		defer func() {
-			srv.Conn.Close()
-			srv.Conn = nil
-		}()
 	}
 
 	if srv.BufferSize <= 0 {
@@ -81,9 +82,34 @@ func (srv *Server) ListenAndWrite(ctx context.Context) error {
 		TypesDB:        srv.TypesDB,
 	}
 
+	var ctxErr error
+	shutdown := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			ctxErr = ctx.Err()
+			// this interrupts the below Conn.Read().
+			srv.Conn.Close()
+			return
+		case <-shutdown:
+			return
+		}
+	}()
+
 	for {
 		n, err := srv.Conn.Read(buf)
 		if err != nil {
+			// if ctxErr is non-nil the context got cancelled.
+			if ctxErr != nil {
+				srv.Conn = nil
+				return ctxErr
+			}
+
+			// network error: shutdown the goroutine, close the
+			// connection and return.
+			close(shutdown)
+			srv.Conn.Close()
+			srv.Conn = nil
 			return err
 		}
 
