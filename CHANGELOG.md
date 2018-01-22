@@ -1,9 +1,9 @@
 ## 0.4.0 / 2018-01-22
 
-* [FEATURE] Support collectd types.db file (#35)
-* [FEATURE] Set receive buffer on UDP socket receiving collectd binary data (#36)
 * [CHANGE] Append `_total` to metric name of collectd Counter and Derive types (#41)
 * [CHANGE] Update flag invocation (#47)
+* [FEATURE] Support collectd types.db file (#35)
+* [FEATURE] Set receive buffer on UDP socket receiving collectd binary data (#36)
 * [BUGFIX] Sanitize metric name output (#51)
 
 ## 0.3.1 / 2016-06-06
