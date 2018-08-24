@@ -2,8 +2,10 @@ sudo: false
 
 language: go
 
+# Whenever the Go version is updated here, .circleci/config.yml should also be
+# updated.
 go:
-- 1.7
+- 1.10.x
 
 script:
 - make
