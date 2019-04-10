@@ -132,7 +132,7 @@ type collectdCollector struct {
 
 func newCollectdCollector() *collectdCollector {
 	c := &collectdCollector{
-		ch:         make(chan api.ValueList, 0),
+		ch:         make(chan api.ValueList),
 		valueLists: make(map[string]api.ValueList),
 		mu:         &sync.Mutex{},
 	}
