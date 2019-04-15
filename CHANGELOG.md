@@ -1,3 +1,5 @@
+## master / unreleased
+
 ## 0.4.0 / 2018-01-22
 
 * [CHANGE] Append `_total` to metric name of collectd Counter and Derive types (#41)
