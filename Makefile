@@ -14,6 +14,3 @@
 include Makefile.common
 
 DOCKER_IMAGE_NAME ?= collectd-exporter
-
-STATICCHECK_IGNORE = \
-					 github.com/prometheus/collectd_exporter/main.go:SA1019
