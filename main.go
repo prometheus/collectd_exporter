@@ -312,6 +312,7 @@ func main() {
 		http.HandleFunc(*collectdPostPath, c.collectdPost)
 	}
 
+	//lint:ignore SA1019 relax staticcheck verification.
 	http.Handle(*metricsPath, prometheus.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
