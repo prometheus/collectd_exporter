@@ -29,6 +29,7 @@ import (
 	"collectd.org/api"
 	"collectd.org/network"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/version"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -312,8 +313,7 @@ func main() {
 		http.HandleFunc(*collectdPostPath, c.collectdPost)
 	}
 
-	//lint:ignore SA1019 relax staticcheck verification.
-	http.Handle(*metricsPath, prometheus.Handler())
+	http.Handle(*metricsPath, promhttp.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
              <head><title>Collectd Exporter</title></head>
