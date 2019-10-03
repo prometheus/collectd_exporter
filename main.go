@@ -28,9 +28,12 @@ import (
 
 	"collectd.org/api"
 	"collectd.org/network"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/log"
+	"github.com/prometheus/common/promlog"
+	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -129,13 +132,15 @@ type collectdCollector struct {
 	ch         chan api.ValueList
 	valueLists map[string]api.ValueList
 	mu         *sync.Mutex
+	logger     log.Logger
 }
 
-func newCollectdCollector() *collectdCollector {
+func newCollectdCollector(logger log.Logger) *collectdCollector {
 	c := &collectdCollector{
 		ch:         make(chan api.ValueList),
 		valueLists: make(map[string]api.ValueList),
 		mu:         &sync.Mutex{},
+		logger:     logger,
 	}
 	go c.processSamples()
 	return c
@@ -205,7 +210,7 @@ func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 		for i := range vl.Values {
 			m, err := newMetric(vl, i)
 			if err != nil {
-				log.Errorf("newMetric: %v", err)
+				level.Error(c.logger).Log("msg", "Error converting collectd data type to a Prometheus metric", "err", err)
 				continue
 			}
 
@@ -228,7 +233,7 @@ func (c collectdCollector) Write(_ context.Context, vl *api.ValueList) error {
 	return nil
 }
 
-func startCollectdServer(ctx context.Context, w api.Writer) {
+func startCollectdServer(ctx context.Context, w api.Writer, logger log.Logger) {
 	if *collectdAddress == "" {
 		return
 	}
@@ -245,13 +250,15 @@ func startCollectdServer(ctx context.Context, w api.Writer) {
 	if *collectdTypesDB != "" {
 		file, err := os.Open(*collectdTypesDB)
 		if err != nil {
-			log.Fatalf("Can't open types.db file %s", *collectdTypesDB)
+			level.Error(logger).Log("msg", "Can't open types.db file", "types", *collectdTypesDB, "err", err)
+			os.Exit(1)
 		}
 		defer file.Close()
 
 		typesDB, err := api.NewTypesDB(file)
 		if err != nil {
-			log.Fatalf("Error in parsing types.db file %s", *collectdTypesDB)
+			level.Error(logger).Log("msg", "Error in parsing types.db file", "types", *collectdTypesDB, "err", err)
+			os.Exit(1)
 		}
 		srv.TypesDB = typesDB
 	}
@@ -264,12 +271,14 @@ func startCollectdServer(ctx context.Context, w api.Writer) {
 	case "encrypt":
 		srv.SecurityLevel = network.Encrypt
 	default:
-		log.Fatalf("Unknown security level %q. Must be one of \"None\", \"Sign\" and \"Encrypt\".", *collectdSecurity)
+		level.Error(logger).Log("msg", "Unknown security level provided. Must be one of \"None\", \"Sign\" and \"Encrypt\"", "level", *collectdSecurity)
+		os.Exit(1)
 	}
 
 	laddr, err := net.ResolveUDPAddr("udp", *collectdAddress)
 	if err != nil {
-		log.Fatalf("Failed to resolve binary protocol listening UDP address %q: %v", *collectdAddress, err)
+		level.Error(logger).Log("msg", "Failed to resolve binary protocol listening UDP address", "address", *collectdAddress, "err", err)
+		os.Exit(1)
 	}
 
 	if laddr.IP != nil && laddr.IP.IsMulticast() {
@@ -278,16 +287,21 @@ func startCollectdServer(ctx context.Context, w api.Writer) {
 		srv.Conn, err = net.ListenUDP("udp", laddr)
 	}
 	if err != nil {
-		log.Fatalf("Failed to create a socket for a binary protocol server: %v", err)
+		level.Error(logger).Log("msg", "Failed to create a socket for a binary protocol server", "err", err)
+		os.Exit(1)
 	}
 	if *collectdBuffer > 0 {
 		if err = srv.Conn.SetReadBuffer(*collectdBuffer); err != nil {
-			log.Fatalf("Failed to adjust a read buffer of the socket: %v", err)
+			level.Error(logger).Log("msg", "Failed to adjust a read buffer of the socket", "err", err)
+			os.Exit(1)
 		}
 	}
 
 	go func() {
-		log.Fatal(srv.ListenAndWrite(ctx))
+		if err := srv.ListenAndWrite(ctx); err != nil {
+			level.Error(logger).Log("msg", "Error starting collectd server", "err", err)
+			os.Exit(1)
+		}
 	}()
 }
 
@@ -296,18 +310,21 @@ func init() {
 }
 
 func main() {
-	log.AddFlags(kingpin.CommandLine)
-	kingpin.Version(version.Print("collectd_exporter"))
+	promlogConfig := &promlog.Config{}
+	flag.AddFlags(kingpin.CommandLine, promlogConfig)
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
+	logger := promlog.New(promlogConfig)
 
-	log.Infoln("Starting collectd_exporter", version.Info())
-	log.Infoln("Build context", version.BuildContext())
+	kingpin.Version(version.Print("collectd_exporter"))
 
-	c := newCollectdCollector()
+	level.Info(logger).Log("msg", "Starting collectd_exporter", "version", version.Info())
+	level.Info(logger).Log("msg", "Build context", "context", version.BuildContext())
+
+	c := newCollectdCollector(logger)
 	prometheus.MustRegister(c)
 
-	startCollectdServer(context.Background(), c)
+	startCollectdServer(context.Background(), c, logger)
 
 	if *collectdPostPath != "" {
 		http.HandleFunc(*collectdPostPath, c.collectdPost)
@@ -324,6 +341,9 @@ func main() {
              </html>`))
 	})
 
-	log.Infoln("Listening on", *listenAddress)
-	log.Fatal(http.ListenAndServe(*listenAddress, nil))
+	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
+	if err := http.ListenAndServe(*listenAddress, nil); err != nil {
+		level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+		os.Exit(1)
+	}
 }
