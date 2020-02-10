@@ -212,7 +212,7 @@ func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 
 		for i := range vl.Values {
 			dsName := vl.DSName(i)
-			if _, ok := dsNameSeen[dsName]; !ok {
+			if _, seen := dsNameSeen[dsName]; !seen {
 				dsNameSeen[dsName] = true
 
 				m, err := newMetric(vl, i)
@@ -222,6 +222,8 @@ func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 				}
 
 				ch <- m
+			} else {
+				level.Warn(c.logger).Log("msg", "Ignoring metric for already seen data source name", "name", dsName)
 			}
 		}
 	}
