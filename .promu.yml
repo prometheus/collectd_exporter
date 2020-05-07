@@ -1,6 +1,5 @@
 go:
-    # Whenever the Go version is updated here, .travis.yml and
-    # .circle/config.yml should also be updated.
+    # This must match .circle/config.yml.
     version: 1.14
 repository:
     path: github.com/prometheus/collectd_exporter
