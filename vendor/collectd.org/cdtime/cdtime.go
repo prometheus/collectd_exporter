@@ -14,6 +14,9 @@ type Time uint64
 
 // New returns a new Time representing time t.
 func New(t time.Time) Time {
+	if t.IsZero() {
+		return 0
+	}
 	return newNano(uint64(t.UnixNano()))
 }
 
@@ -24,6 +27,10 @@ func NewDuration(d time.Duration) Time {
 
 // Time converts and returns the time as time.Time.
 func (t Time) Time() time.Time {
+	if t == 0 {
+		return time.Time{}
+	}
+
 	s, ns := t.decompose()
 	return time.Unix(s, ns)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"collectd.org/cdtime"
+	"collectd.org/meta"
 )
 
 // jsonValueList represents the format used by collectd's JSON export.
@@ -19,6 +20,7 @@ type jsonValueList struct {
 	PluginInstance string        `json:"plugin_instance,omitempty"`
 	Type           string        `json:"type"`
 	TypeInstance   string        `json:"type_instance,omitempty"`
+	Meta           meta.Data     `json:"meta,omitempty"`
 }
 
 // MarshalJSON implements the "encoding/json".Marshaler interface for
@@ -35,6 +37,7 @@ func (vl *ValueList) MarshalJSON() ([]byte, error) {
 		PluginInstance: vl.PluginInstance,
 		Type:           vl.Type,
 		TypeInstance:   vl.TypeInstance,
+		Meta:           vl.Meta,
 	}
 
 	for i, v := range vl.Values {
@@ -114,6 +117,8 @@ func (vl *ValueList) UnmarshalJSON(data []byte) error {
 		vl.DSNames = make([]string, len(vl.Values))
 		copy(vl.DSNames, jvl.DSNames)
 	}
+
+	vl.Meta = jvl.Meta
 
 	return nil
 }

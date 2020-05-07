@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"sync"
 
 	"collectd.org/api"
 )
@@ -44,13 +45,16 @@ type Server struct {
 // Addr if Conn is nil), parses the received packets and writes them to the
 // provided api.Writer.
 func (srv *Server) ListenAndWrite(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	if srv.Conn == nil {
 		addr := srv.Addr
 		if addr == "" {
 			addr = ":" + DefaultService
 		}
 
-		laddr, err := net.ResolveUDPAddr("udp", srv.Addr)
+		laddr, err := net.ResolveUDPAddr("udp", addr)
 		if err != nil {
 			return err
 		}
@@ -74,7 +78,6 @@ func (srv *Server) ListenAndWrite(ctx context.Context) error {
 	if srv.BufferSize <= 0 {
 		srv.BufferSize = DefaultBufferSize
 	}
-	buf := make([]byte, srv.BufferSize)
 
 	popts := ParseOpts{
 		PasswordLookup: srv.PasswordLookup,
@@ -82,34 +85,24 @@ func (srv *Server) ListenAndWrite(ctx context.Context) error {
 		TypesDB:        srv.TypesDB,
 	}
 
-	var ctxErr error
-	shutdown := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
-			ctxErr = ctx.Err()
 			// this interrupts the below Conn.Read().
 			srv.Conn.Close()
-			return
-		case <-shutdown:
-			return
 		}
 	}()
 
+	var wg sync.WaitGroup
 	for {
+		buf := make([]byte, srv.BufferSize)
 		n, err := srv.Conn.Read(buf)
 		if err != nil {
-			// if ctxErr is non-nil the context got cancelled.
-			if ctxErr != nil {
-				srv.Conn = nil
-				return ctxErr
-			}
-
-			// network error: shutdown the goroutine, close the
-			// connection and return.
-			close(shutdown)
 			srv.Conn.Close()
-			srv.Conn = nil
+			wg.Wait()
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			return err
 		}
 
@@ -119,7 +112,11 @@ func (srv *Server) ListenAndWrite(ctx context.Context) error {
 			continue
 		}
 
-		go dispatch(ctx, valueLists, srv.Writer)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dispatch(ctx, valueLists, srv.Writer)
+		}()
 	}
 }
 
