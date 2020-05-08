@@ -1,5 +1,9 @@
 ## master / unreleased
 
+## 0.5.0 / 2020-05-08
+
+* [CHANGE] Switch logging to go-kit (#85)
+
 ## 0.4.0 / 2018-01-22
 
 * [CHANGE] Append `_total` to metric name of collectd Counter and Derive types (#41)
