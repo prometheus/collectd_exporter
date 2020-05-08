@@ -110,7 +110,7 @@ func parse(b []byte, sl SecurityLevel, opts ParseOpts) ([]*api.ValueList, error)
 				// Returns an error if the number of values is incorrect.
 				v, err := ds.Values(ifValues...)
 				if err != nil {
-					log.Printf("unable to convert values according to TypesDB: %v", err)
+					log.Printf("unable to convert metric %q, values %v according to %v in TypesDB: %v", state, ifValues, ds, err)
 					continue
 				}
 				vl.Values = v

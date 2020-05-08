@@ -2,6 +2,7 @@ package network // import "collectd.org/network"
 
 import (
 	"context"
+	"errors"
 	"net"
 
 	"collectd.org/api"
@@ -51,7 +52,7 @@ func Dial(address string, opts ClientOptions) (*Client, error) {
 // Write adds a ValueList to the internal buffer. Data is only written to
 // the network when the buffer is full.
 func (c *Client) Write(ctx context.Context, vl *api.ValueList) error {
-	if err := c.buffer.Write(ctx, vl); err != ErrNotEnoughSpace {
+	if err := c.buffer.Write(ctx, vl); !errors.Is(err, ErrNotEnoughSpace) {
 		return err
 	}
 
