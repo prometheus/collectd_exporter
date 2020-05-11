@@ -1,3 +1,6 @@
+## THIS EXPORTER HAS BEEN DEPRECATED IN FAVOR OF UPSTREAM PROMETHEUS SUPPORT IN COLLECTD: https://collectd.org/wiki/index.php/Plugin:Write_Prometheus.
+## Please switch to the upstream Prometheus module for collectd and work with the authors there to add any missing functionality. We will not be accepting changes to this exporter anymore and will be removing the exporter repository in due time.
+
 # Collectd Exporter [![Build Status](https://travis-ci.org/prometheus/collectd_exporter.svg)][travis]
 
 [![CircleCI](https://circleci.com/gh/prometheus/collectd_exporter/tree/master.svg?style=shield)][circleci]
