@@ -312,11 +312,10 @@ func init() {
 func main() {
 	promlogConfig := &promlog.Config{}
 	flag.AddFlags(kingpin.CommandLine, promlogConfig)
+	kingpin.Version(version.Print("collectd_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
 	logger := promlog.New(promlogConfig)
-
-	kingpin.Version(version.Print("collectd_exporter"))
 
 	level.Info(logger).Log("msg", "Starting collectd_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", "context", version.BuildContext())
