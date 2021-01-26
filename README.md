@@ -1,8 +1,14 @@
-# Collectd Exporter [![Build Status](https://travis-ci.org/prometheus/collectd_exporter.svg)][travis]
+# !! This exporter is deprecated !!
 
-[![CircleCI](https://circleci.com/gh/prometheus/collectd_exporter/tree/master.svg?style=shield)][circleci]
-[![Docker Repository on Quay](https://quay.io/repository/prometheus/collectd-exporter/status)][quay]
-[![Docker Pulls](https://img.shields.io/docker/pulls/prom/collectd-exporter.svg?maxAge=604800)][hub]
+We recommend our users to use the [write_prometheus](https://collectd.org/wiki/index.php/Plugin:Write_Prometheus)
+plugin from collected instead of this exporter. This plugin is similar in scope
+to this exporter and uses the same naming schema so it can be used as a drop-in
+alternative.
+
+In the coming months, this exporter will be moved to the
+[Prometheus-Junkyard](https://github.com/prometheus-junkyard) organisation.
+
+# Collectd Exporter
 
 An exporter for [collectd](https://collectd.org/). It accepts collectd's
 [binary network protocol](https://collectd.org/wiki/index.php/Binary_protocol)
