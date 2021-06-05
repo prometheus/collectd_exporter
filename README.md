@@ -69,6 +69,12 @@ docker pull prom/collectd-exporter
 docker run -d -p 9103:9103 -p 25826:25826/udp prom/collectd-exporter --collectd.listen-address=":25826"
 ```
 
+## TLS and basic authentication
+
+The *collectd_exporter* supports TLS and basic authentication.
+To use TLS and/or basic authentication, you need to pass a configuration file
+using the `--web.config.file` parameter. The format of the file is described
+[in the exporter-toolkit repository](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md).
 
 [circleci]: https://circleci.com/gh/prometheus/collectd_exporter
 [hub]: https://hub.docker.com/r/prom/collectd-exporter/
