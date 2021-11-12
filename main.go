@@ -86,15 +86,15 @@ func newName(vl api.ValueList, index int) string {
 // newLabels converts the plugin and type instance of vl to a set of prometheus.Labels.
 func newLabels(vl api.ValueList) prometheus.Labels {
 	labels := prometheus.Labels{}
+	key := metric_name_re.ReplaceAllString(vl.Plugin, "_")
 	if vl.PluginInstance != "" {
-		labels[vl.Plugin] = vl.PluginInstance
+		labels[key] = metric_name_re.ReplaceAllString(vl.PluginInstance, "_")
 	}
 	if vl.TypeInstance != "" {
-		if vl.PluginInstance == "" {
-			labels[vl.Plugin] = vl.TypeInstance
-		} else {
-			labels["type"] = vl.TypeInstance
+		if vl.PluginInstance != "" {
+			key = "type"
 		}
+		labels[key] = metric_name_re.ReplaceAllString(vl.TypeInstance, "_")
 	}
 	labels["instance"] = vl.Host
 
