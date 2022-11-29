@@ -28,6 +28,7 @@ import (
 
 	"collectd.org/api"
 	"collectd.org/network"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
@@ -36,8 +37,7 @@ import (
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
-	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/prometheus/exporter-toolkit/web/kingpinflag"
 )
 
 // timeout specifies the number of iterations after which a metric times out,
@@ -46,8 +46,6 @@ import (
 const timeout = 2
 
 var (
-	webConfig        = webflag.AddFlags(kingpin.CommandLine)
-	listenAddress    = kingpin.Flag("web.listen-address", "Address on which to expose metrics and web interface.").Default(":9103").String()
 	collectdAddress  = kingpin.Flag("collectd.listen-address", "Network address on which to accept collectd binary network packets, e.g. \":25826\".").Default("").String()
 	collectdBuffer   = kingpin.Flag("collectd.udp-buffer", "Size of the receive buffer of the socket used by collectd binary protocol receiver.").Default("0").Int()
 	collectdAuth     = kingpin.Flag("collectd.auth-file", "File mapping user names to pre-shared keys (passwords).").Default("").String()
@@ -314,6 +312,7 @@ func init() {
 
 func main() {
 	promlogConfig := &promlog.Config{}
+	toolkitFlags := kingpinflag.AddFlags(kingpin.CommandLine, ":9103")
 	flag.AddFlags(kingpin.CommandLine, promlogConfig)
 	kingpin.Version(version.Print("collectd_exporter"))
 	kingpin.HelpFlag.Short('h')
@@ -333,19 +332,29 @@ func main() {
 	}
 
 	http.Handle(*metricsPath, promhttp.Handler())
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
-             <head><title>Collectd Exporter</title></head>
-             <body>
-             <h1>Collectd Exporter</h1>
-             <p><a href='` + *metricsPath + `'>Metrics</a></p>
-             </body>
-             </html>`))
-	})
+	if *metricsPath != "/" {
 
-	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
-	srv := &http.Server{Addr: *listenAddress}
-	if err := web.ListenAndServe(srv, *webConfig, logger); err != nil {
+		landingConfig := web.LandingConfig{
+			Name:        "collectd_exporter",
+			Description: "Prometheus Collectd Exporter",
+			Version:     version.Info(),
+			Links: []web.LandingLinks{
+				{
+					Address: *metricsPath,
+					Text:    "Metrics",
+				},
+			},
+		}
+		landingPage, err := web.NewLandingPage(landingConfig)
+		if err != nil {
+			level.Error(logger).Log("err", err)
+			os.Exit(1)
+		}
+		http.Handle("/", landingPage)
+	}
+
+	srv := &http.Server{}
+	if err := web.ListenAndServe(srv, toolkitFlags, logger); err != nil {
 		level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
 		os.Exit(1)
 	}

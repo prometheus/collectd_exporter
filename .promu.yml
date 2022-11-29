@@ -1,10 +1,9 @@
 go:
     # This must match .circle/config.yml.
-    version: 1.18
+    version: 1.21
 repository:
     path: github.com/prometheus/collectd_exporter
 build:
-    flags: -a -tags netgo
     ldflags: |
         -X github.com/prometheus/common/version.Version={{.Version}}
         -X github.com/prometheus/common/version.Revision={{.Revision}}
