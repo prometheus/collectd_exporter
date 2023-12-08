@@ -1,5 +1,12 @@
 ## master / unreleased
 
+## 0.6.0 / 2023-12-08
+
+* [CHANGE] Update minimum Go version to 1.20 (#145)
+* [FEATURE] Add TLS authentication using official exporter-toolkit (#113)
+* [BUGFIX] Restore version command line flag and fix build info (#104)
+* [FEATURE] Added s390x support to docker image (#98)
+
 ## 0.5.0 / 2020-05-08
 
 * [CHANGE] Switch logging to go-kit (#85)
