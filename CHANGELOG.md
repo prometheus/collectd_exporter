@@ -1,5 +1,11 @@
 ## master / unreleased
 
+## 0.6.0 / 2023-12-09
+
+* [FEATURE] Add TLS authentication using official exporter-toolkit (#113)
+* [FEATURE] Added s390x support to docker image (#98)
+* [BUGFIX] Restore version command line flag and fix build info (#104)
+
 ## 0.5.0 / 2020-05-08
 
 * [CHANGE] Switch logging to go-kit (#85)
