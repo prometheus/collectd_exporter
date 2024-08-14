@@ -209,14 +209,24 @@ func (c collectdCollector) Collect(ch chan<- prometheus.Metric) {
 			continue
 		}
 
-		for i := range vl.Values {
-			m, err := newMetric(vl, i)
-			if err != nil {
-				level.Error(c.logger).Log("msg", "Error converting collectd data type to a Prometheus metric", "err", err)
-				continue
-			}
+		// prevent duplicate metrics
+		dsNameSeen := make(map[string]bool)
 
-			ch <- m
+		for i := range vl.Values {
+			dsName := vl.DSName(i)
+			if _, seen := dsNameSeen[dsName]; !seen {
+				dsNameSeen[dsName] = true
+
+				m, err := newMetric(vl, i)
+				if err != nil {
+					level.Error(c.logger).Log("msg", "Error converting collectd data type to a Prometheus metric", "err", err)
+					continue
+				}
+
+				ch <- m
+			} else {
+				level.Warn(c.logger).Log("msg", "Ignoring metric for already seen data source name", "name", dsName)
+			}
 		}
 	}
 }
