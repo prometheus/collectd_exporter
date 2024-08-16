@@ -41,17 +41,13 @@ import (
 	"github.com/prometheus/exporter-toolkit/web/kingpinflag"
 )
 
-// timeout specifies the number of iterations after which a metric times out,
-// i.e. becomes stale and is removed from collectdCollector.valueLists. It is
-// modeled and named after the top-level "Timeout" setting of collectd.
-const timeout = 2
-
 var (
 	collectdAddress  = kingpin.Flag("collectd.listen-address", "Network address on which to accept collectd binary network packets, e.g. \":25826\".").Default("").String()
 	collectdBuffer   = kingpin.Flag("collectd.udp-buffer", "Size of the receive buffer of the socket used by collectd binary protocol receiver.").Default("0").Int()
 	collectdAuth     = kingpin.Flag("collectd.auth-file", "File mapping user names to pre-shared keys (passwords).").Default("").String()
 	collectdSecurity = kingpin.Flag("collectd.security-level", "Minimum required security level for accepted packets. Must be one of \"None\", \"Sign\" and \"Encrypt\".").Default("None").String()
 	collectdTypesDB  = kingpin.Flag("collectd.typesdb-file", "Collectd types.db file for datasource names mapping. Needed only if using a binary network protocol.").Default("").String()
+	collectdTimeout  = kingpin.Flag("collectd.timeout", "Specifies the number of iterations after which a metric times out and is removed from collectdCollector.valueLists.").Default("2").Uint64()
 	metricsPath      = kingpin.Flag("web.telemetry-path", "Path under which to expose Prometheus metrics.").Default("/metrics").String()
 	collectdPostPath = kingpin.Flag("web.collectd-push-path", "Path under which to accept POST requests from collectd.").Default("/collectd-post").String()
 	lastPush         = prometheus.NewGauge(
@@ -61,6 +57,11 @@ var (
 		},
 	)
 	metric_name_re = regexp.MustCompile("[^a-zA-Z0-9_:]")
+
+	// timeout specifies the number of iterations after which a metric times out,
+	// i.e. becomes stale and is removed from collectdCollector.valueLists. It is
+	// modeled and named after the top-level "Timeout" setting of collectd.
+	timeout time.Duration
 )
 
 // newName converts one data source of a value list to a string representation.
@@ -318,6 +319,8 @@ func main() {
 	kingpin.Version(version.Print("collectd_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
+
+	timeout = time.Duration(*collectdTimeout)
 	logger := promlog.New(promlogConfig)
 
 	level.Info(logger).Log("msg", "Starting collectd_exporter", "version", version.Info())
