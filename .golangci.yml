@@ -2,5 +2,23 @@
 # Run only staticcheck for now. Additional linters will be enabled one-by-one.
 linters:
   enable:
+    - sloglint
     - staticcheck
-  disable-all: true
+
+issues:
+  exclude-rules:
+    - path: _test.go
+      linters:
+        - errcheck
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      # Used in HTTP handlers, any error is handled by the server itself.
+      - (net/http.ResponseWriter).Write
+  revive:
+    rules:
+      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#unused-parameter
+      - name: unused-parameter
+        severity: warning
+        disabled: true
