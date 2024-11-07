@@ -1,5 +1,9 @@
 ## master / unreleased
 
+## 0.7.0 / 2024-11-07
+
+* [CHANGE] Update logging library #174
+
 ## 0.6.0 / 2023-12-09
 
 * [FEATURE] Add TLS authentication using official exporter-toolkit (#113)
