@@ -1,6 +1,6 @@
 module github.com/prometheus/collectd_exporter
 
-go 1.22
+go 1.23.0
 
 require (
 	collectd.org v0.6.0

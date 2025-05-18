@@ -173,7 +173,7 @@ func (c *collectdCollector) processSamples() {
 	for {
 		select {
 		case vl := <-c.ch:
-			id := vl.Identifier.String()
+			id := vl.String()
 			c.mu.Lock()
 			c.valueLists[id] = vl
 			c.mu.Unlock()
