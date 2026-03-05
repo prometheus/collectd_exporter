@@ -1,5 +1,9 @@
 ## master / unreleased
 
+## 0.7.1 / 2026-03-05
+
+* [CHANGE] Rebuild with latest dependencies #190
+
 ## 0.7.0 / 2024-11-07
 
 * [CHANGE] Update logging library #174
