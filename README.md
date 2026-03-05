@@ -1,6 +1,6 @@
 # Collectd Exporter [![Build Status](https://travis-ci.org/prometheus/collectd_exporter.svg)][travis]
 
-[![CircleCI](https://circleci.com/gh/prometheus/collectd_exporter/tree/master.svg?style=shield)][circleci]
+[![Build Status](https://github.com/prometheus/collectd_exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/prometheus/collectd_exporter/actions/workflows/ci.yml)
 [![Docker Repository on Quay](https://quay.io/repository/prometheus/collectd-exporter/status)][quay]
 [![Docker Pulls](https://img.shields.io/docker/pulls/prom/collectd-exporter.svg?maxAge=604800)][hub]
 
