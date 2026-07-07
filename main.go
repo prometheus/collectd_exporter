@@ -32,6 +32,7 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promslog"
 	"github.com/prometheus/common/promslog/flag"
@@ -58,6 +59,13 @@ var (
 			Name: "collectd_last_push_timestamp_seconds",
 			Help: "Unix timestamp of the last received collectd metrics push in seconds.",
 		},
+	)
+	collectdValues = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "collectd_exporter_values_received_total",
+			Help: "Number of collectd values received.",
+		},
+		[]string{"instance"},
 	)
 	metric_name_re = regexp.MustCompile("[^a-zA-Z0-9_:]")
 )
@@ -231,6 +239,7 @@ func (c collectdCollector) Describe(ch chan<- *prometheus.Desc) {
 // Write writes "vl" to the collector's channel, to be (asynchronously)
 // processed by processSamples(). It implements api.Writer.
 func (c collectdCollector) Write(_ context.Context, vl *api.ValueList) error {
+	collectdValues.WithLabelValues(vl.Host).Add(float64(len(vl.Values)))
 	lastPush.Set(float64(time.Now().UnixNano()) / 1e9)
 	c.ch <- *vl
 
@@ -302,6 +311,7 @@ func startCollectdServer(ctx context.Context, w api.Writer, logger *slog.Logger)
 	}
 
 	go func() {
+		logger.Info("Listening for colletcd", "address", *collectdAddress)
 		if err := srv.ListenAndWrite(ctx); err != nil {
 			logger.Error("Error starting collectd server", "err", err)
 			os.Exit(1)
