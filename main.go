@@ -100,9 +100,15 @@ func newLabels(vl api.ValueList) prometheus.Labels {
 }
 
 // newDesc converts one data source of a value list to a Prometheus description.
+//
+// The help text must not depend on the collectd data source type: COUNTER and
+// DERIVE are both exported as Prometheus counters under the same name, and
+// different collectd versions report some types (e.g. if_errors) with
+// different data source types. A per-type help text would make the metric
+// family inconsistent and fail the whole scrape.
 func newDesc(vl api.ValueList, index int) *prometheus.Desc {
-	help := fmt.Sprintf("Collectd exporter: '%s' Type: '%s' Dstype: '%T' Dsname: '%s'",
-		vl.Plugin, vl.Type, vl.Values[index], vl.DSName(index))
+	help := fmt.Sprintf("Collectd exporter: '%s' Type: '%s' Dsname: '%s'",
+		vl.Plugin, vl.Type, vl.DSName(index))
 
 	return prometheus.NewDesc(newName(vl, index), help, []string{}, newLabels(vl))
 }
