@@ -15,10 +15,13 @@ package main
 
 import (
 	"reflect"
+	"sync"
 	"testing"
+	"time"
 
 	"collectd.org/api"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/promslog"
 )
 
 func TestNewName(t *testing.T) {
@@ -145,6 +148,59 @@ func TestNewLabels(t *testing.T) {
 		got := newLabels(c.vl)
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("newLabels(%v): got %v, want %v", c.vl, got, c.want)
+		}
+	}
+}
+
+// TestCollectMixedDataSourceTypes checks that a counter reported as COUNTER by
+// one host and as DERIVE by another (e.g. if_errors from collectd 4.x and 5.x
+// types.db) is exported as one consistent metric family. See #100.
+func TestCollectMixedDataSourceTypes(t *testing.T) {
+	now := time.Now()
+	newVL := func(host string, v api.Value) api.ValueList {
+		return api.ValueList{
+			Identifier: api.Identifier{
+				Host:           host,
+				Plugin:         "interface",
+				PluginInstance: "eth0",
+				Type:           "if_errors",
+			},
+			Time:     now,
+			Interval: 10 * time.Second,
+			Values:   []api.Value{v, v},
+			DSNames:  []string{"rx", "tx"},
+		}
+	}
+
+	c := &collectdCollector{
+		valueLists: map[string]api.ValueList{},
+		mu:         &sync.Mutex{},
+		logger:     promslog.NewNopLogger(),
+	}
+	for _, vl := range []api.ValueList{
+		newVL("collectd4.example.com", api.Counter(1)),
+		newVL("collectd5.example.com", api.Derive(2)),
+	} {
+		c.valueLists[vl.String()] = vl
+	}
+
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(c)
+	mfs, err := reg.Gather()
+	if err != nil {
+		t.Fatalf("Gather() returned an error: %v", err)
+	}
+
+	got := map[string]int{}
+	for _, mf := range mfs {
+		got[mf.GetName()] = len(mf.GetMetric())
+	}
+	for _, name := range []string{
+		"collectd_interface_if_errors_rx_total",
+		"collectd_interface_if_errors_tx_total",
+	} {
+		if got[name] != 2 {
+			t.Errorf("%s: got %d series, want 2", name, got[name])
 		}
 	}
 }
